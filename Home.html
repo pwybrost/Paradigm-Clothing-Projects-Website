@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Archive | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <style>
+        /* --- CORE STYLES --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; display: flex; flex-direction: column; font-family: 'Helvetica Neue', Arial, sans-serif; color: #fff; overflow-x: hidden; background: #000; user-select: none; -webkit-user-select: none; }
+        body::before { 
+            content: ""; position: fixed; top: -10%; left: -10%; width: 120vw; height: 120vh; 
+            background-image: url('https://img.freepik.com/free-photo/grayscale-futuristic-abstract-background-with-light-effects_181624-16494.jpg');
+            background-size: cover; background-position: center; z-index: -2;
+            animation: glowzoom 12s infinite alternate ease-in-out;
+        }
+        body::after { content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: -1; transition: background 0.5s; }
+        @keyframes glowzoom { 0% { transform: scale(1); filter: brightness(0.3) saturate(1) blur(6px); opacity: 0.5; } 100% { transform: scale(1.15); filter: brightness(1.5) saturate(2.5) blur(0px); opacity: 1; } }
+
+        /* --- HEADER & NAVIGATION --- */
+        .header-btn { position: fixed; top: 20px; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 12px 20px; font-size: 10px; font-weight: bold; font-family: monospace; letter-spacing: 2px; cursor: pointer; backdrop-filter: blur(5px); z-index: 1000; transition: all 0.3s ease; text-transform: uppercase; }
+        .header-btn:hover { background: #fff; color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
+        .btn-left { left: 20px; border-color: #3b82f6; color: #3b82f6; }
+        .btn-right { right: 20px; }
+
+        .page-header { padding: 50px 0 20px 0; text-align: center; text-transform: uppercase; }
+        .page-header h1 { font-size: 45px; font-weight: 300; letter-spacing: 12px; margin-bottom: 5px; }
+
+        /* --- SEARCH & FILTER SECTION --- */
+        .filter-wrapper { max-width: 800px; margin: 0 auto 40px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+        .search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(59, 130, 246, 0.3); padding: 15px; color: #fff; font-family: monospace; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; outline: none; transition: 0.3s; text-align: center; }
+        .search-input:focus { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+        .price-filters { display: flex; gap: 10px; justify-content: center; }
+        .price-filters input { width: 40%; }
+
+        /* --- PRODUCT GRID --- */
+        .wrapper { flex-grow: 1; max-width: 1600px; margin: 0 auto; padding: 0 20px 40px 20px; position: relative; z-index: 10; width: 100%; }
+        .product-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; min-height: 200px; }
+        .product-card { background: rgba(10,10,10,0.85); border: 1px solid rgba(255,255,255,0.1); padding: 15px; transition: 0.3s; cursor: pointer; }
+        .product-card:hover { border-color: rgba(255,255,255,0.5); transform: translateY(-3px); }
+        .product-card img { width: 100%; height: 180px; object-fit: cover; margin-bottom: 12px; }
+        .product-card h4 { font-size: 10px; letter-spacing: 1px; height: 25px; overflow: hidden; margin-bottom: 5px; }
+        .product-card .price { color: #3b82f6; font-family: monospace; margin-bottom: 10px; }
+
+        /* --- NO MATCH STATE --- */
+        .no-matches { grid-column: 1 / -1; text-align: center; padding: 100px 0; font-family: monospace; color: #666; letter-spacing: 5px; text-transform: uppercase; }
+
+        /* --- MODALS --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #080808; border: 1px solid #333; padding: 40px; width: 100%; max-width: 800px; position: relative; animation: modal-zoom 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 50px rgba(0,0,0,1); }
+        @keyframes modal-zoom { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .modal-close { position: absolute; top: 20px; right: 20px; color: #666; cursor: pointer; font-family: monospace; font-size: 14px; }
+        .modal-close:hover { color: #fff; }
+
+        .product-detail-flex { display: flex; gap: 30px; }
+        .detail-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+
+        .btn { background: #000; color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 12px; cursor: pointer; text-transform: uppercase; font-size: 10px; letter-spacing: 2px; transition: 0.3s; width: 100%; }
+        .btn:hover { background: #fff; color: #000; }
+        .btn-blue { background: #3b82f6; border-color: #3b82f6; }
+        .checkout-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #222; font-size: 11px; }
+        
+        .qty-btn { background: #333; color: #fff; border: none; padding: 2px 8px; cursor: pointer; font-family: monospace; border-radius: 2px; }
+        .qty-btn:hover { background: #555; }
+        .remove-btn { background: none; border: 1px solid #ff4d4d; color: #ff4d4d; padding: 2px 6px; cursor: pointer; font-family: monospace; font-size: 10px; margin-left: 10px; }
+        .remove-btn:hover { background: #ff4d4d; color: #000; }
+
+        /* --- IMAGE ZOOM MAGNIFIER --- */
+        .img-zoom-container { 
+            width: 45%; 
+            height: 400px; 
+            overflow: hidden; 
+            position: relative; 
+            cursor: zoom-in; 
+            border: 1px solid #222; 
+        }
+        .img-zoom-container img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transition: transform 0.15s ease-out; 
+            transform-origin: center center; 
+        }
+
+        /* --- DISCONNECT BUTTON ANIMATION --- */
+        .btn-disconnect { 
+            background: rgba(139, 0, 0, 0.1); 
+            border: 1px solid #8b0000; 
+            color: #ff4d4d; 
+            padding: 8px 20px; 
+            cursor: pointer; 
+            font-size: 10px; 
+            font-family: monospace; 
+            letter-spacing: 2px; 
+            transition: all 0.3s ease; 
+            position: relative; 
+            overflow: hidden; 
+            z-index: 1;
+        }
+        .btn-disconnect::before { 
+            content: ""; 
+            position: absolute; 
+            top: 0; left: -100%; 
+            width: 100%; height: 100%; 
+            background: #8b0000; 
+            transition: all 0.3s ease; 
+            z-index: -1; 
+        }
+        .btn-disconnect:hover::before { left: 0; }
+        .btn-disconnect:hover { 
+            color: #fff; 
+            box-shadow: 0 0 15px rgba(255, 77, 77, 0.6); 
+            border-color: #ff4d4d; 
+        }
+
+        /* --- SMOOTH LOADING OVERLAY & ANIMATIONS --- */
+        .loader-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: opacity 0.8s ease;
+        }
+        .loader-text {
+            font-family: monospace; font-size: 14px; color: #3b82f6; letter-spacing: 8px;
+            animation: pulse-text 1.5s infinite alternate; text-transform: uppercase;
+        }
+        @keyframes pulse-text { from { opacity: 0.4; text-shadow: 0 0 0px #3b82f6; } to { opacity: 1; text-shadow: 0 0 15px #3b82f6; } }
+        
+        /* Utility classes for Javascript to toggle */
+        .fade-out { opacity: 0; pointer-events: none; }
+        .grid-enter { animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }
+        @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
+
+        /* --- LIGHT MODE --- */
+        html.light-mode body::after { background: rgba(255,255,255,0.7); }
+        html.light-mode .modal-content, html.light-mode .product-card { background: #fff; color: #000; border-color: #ccc; }
+        html.light-mode .loader-overlay { background: #fff; } /* Match loader to light mode if enabled */
+    </style>
+</head>
+<body>
+
+    <div id="loaderScreen" class="loader-overlay">
+        <div class="loader-text">Initializing Archive Data...</div>
+    </div>
+
+    <button class="header-btn btn-left" id="checkoutTrigger">Execute Order (0)</button>
+    <button class="header-btn btn-right" id="themeToggleBtn">🌓 Theme</button>
+
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3 style="font-size: 10px; letter-spacing: 5px; color: #666;">Spring/Summer 2026 Archive</h3>
+    </div>
+
+    <div class="filter-wrapper">
+        <input type="text" id="archiveSearch" class="search-input" placeholder="Initiate Keyword Search...">
+        <div class="price-filters">
+            <input type="number" id="minPrice" class="search-input" placeholder="MIN PRICE (₱)">
+            <input type="number" id="maxPrice" class="search-input" placeholder="MAX PRICE (₱)">
+            <button class="btn btn-blue" style="width: 20%;" onclick="applyFilters()">FILTER</button>
+        </div>
+    </div>
+
+    <div class="wrapper">
+        <main id="product-list" class="product-grid"></main>
+
+        <div style="margin-top: 60px; padding: 40px; border: 1px solid #222; background: rgba(0,0,0,0.5);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="font-size:12px; letter-spacing:4px; margin-bottom:10px;">AUTHORIZED USER: <span id="dispUser" style="color:#3b82f6">...</span></h2>
+                    <p style="font-size:10px; color:#666;" id="dispEmail">...</p>
+                </div>
+                <button id="logoutBtn" class="btn-disconnect">DISCONNECT</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="productModal"><div class="modal-content"><span class="modal-close" onclick="closeModal('productModal')">[ CLOSE ]</span><div id="productDetailContent"></div></div></div>
+    
+    <div class="modal-overlay" id="checkoutModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="modal-close" onclick="closeModal('checkoutModal')">[ CLOSE ]</span>
+            <h2 style="font-size:14px; letter-spacing:5px; margin-bottom:25px; text-align:center;">MANIFEST</h2>
+            <div id="cart-items-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px; padding-right: 10px;"></div>
+            <div style="border-top: 1px solid #333; padding-top: 20px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px; font-family:monospace;"><span>TOTAL VALUATION:</span> <span style="color:#3b82f6">₱<span id="total-price">0.00</span></span></div>
+                <button class="btn btn-blue" id="confirmCheckoutBtn" onclick="processCheckout()">Finalize Transmission</button>
+                <p id="status-msg" style="text-align:center; font-size:10px; margin-top:15px; font-family:monospace; color:#888;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { getCurrentUser, logout } from './auth.js';
+
+        // --- AUDIO COOLDOWN ---
+        let audioCtx;
+        let lastPlayed = 0; 
+        function playSound() {
+            const now = Date.now();
+            if (now - lastPlayed < 100) return; 
+            lastPlayed = now;
+
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'square'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        const user = getCurrentUser();
+        if (!user) window.location.href = 'Login.html';
+        else {
+            document.getElementById('dispUser').textContent = user.username;
+            document.getElementById('dispEmail').textContent = user.email;
+        }
+
+        const customItems = [
+            { id: 901, title: "Initial D Drift Tee", price: 1100.00, desc: "Paradigm x Initial D, ft. Takumi's AE86, Takahashi's RX7, and The Mako's Sileighties.", image: "Paradigm x Initial D unfinished.jpg" },
+            { id: 902, title: "PRDGM 26 Tee", price: 900.00, desc: "Classic Collegiate Varsity fit with heavyweight cotton.", image: "Paradigm Varsity Shirt unfinished.png" },
+            { id: 903, title: "Snoopy V1 Tee", price: 1300.00, desc: "Paradigm x Snoopy V1, ft. Peanuts, Snoopy on a Skateboard with Woodstock.", image: "Paradigm x Snoopy.png" },
+            { id: 904, title: "Snoopy V2 Tee", price: 1400.00, desc: "Paradigm x Snoopy V2, ft. Peanuts, Snoopy playing soccer/football with Woodstock.", image: "Paradigm x Snoopy V2.png" },
+            { id: 905, title: "Strawberry Shortcake Tee", price: 1500.00, desc: "Paradigm x Strawberry Shortcake Tee.", image: "Paradigm x Strawberry Shortcake.png" },
+            { id: 906, title: "JDM Fit Tee", price: 1200.00, desc: "Classic JDM Tee, Inspired by the Honda GD2 4WD variant.", image: "Paradigm Fit.png" },
+            { id: 907, title: "Akatsuki Tee", price: 1000.00, desc: "Paradigm x Naruto Tee.", image: "Paradigm x Naruto.jpeg" },
+            { id: 911, title: "Cultural Statuesque Tee", price: 1300.00, desc: "Classical art meets modern street silhouettes.", image: "Paradigm Cultural Statuesque.jpeg" },
+            { id: 912, title: "Oni Tee", price: 1200.00, desc: "Folklore-inspired graphic with high-contrast detailing .", image: "Paradigm Oni.jpeg" },
+            { id: 913, title: "The Dream Tee", price: 1100.00, desc: "Surrealist archive print from the 'Cloudscape' collection.", image: "Paradigm The Dream.jpeg" },
+            { id: 914, title: "Sanrio Duo Tee", price: 3000.00, desc: "Paradigm x Melody & Kuromi collaboration Tee.", image: "Paradigm x Sanrio Melody & Kuromi.jpeg" },
+            { id: 915, title: "Skelly Tee", price: 900.00, desc: "Anatomically Sad Skeleton Print Tee.", image: "Paradigm Skelly.jpeg" },
+            { id: 916, title: "Night Tee", price: 800.00, desc: "Up all night, with Paradigm Night Tee!", image: "Paradigm Night.jpeg" },
+            { id: 917, title: "Sanrio Melody Tee", price: 1000.00, desc: "Soft-touch cotton Tee featuring My Melody.", image: "Paradigm x Sanrio Melody.jpeg" },
+            { id: 918, title: "Sharky Tee", price: 950.00, desc: "Cute Little Sharks Tee", image: "Paradigm Sharky.jpeg" },
+            { id: 919, title: "Daily Tee", price: 1050.00, desc: "Essential wear for the 2026 Archive rotation.", image: "Paradigm Daily.jpeg" },
+            { id: 920, title: "Evangelion Tee", price: 1100.00, desc: "Paradigm x Evangelion Tee.", image: "Paradigm x Evangelion.jpeg" },
+            { id: 921, title: "Catto Tee", price: 800.00, desc: "For those who love Cattos.", image: "Paradigm Catto.jpeg" },
+            { id: 922, title: "Y2k Girl Tee", price: 850.00, desc: "Retro-futuristic aesthetic inspired by digital culture.", image: "Paradigm Y2k Girl.jpeg" }
+        ];
+
+        let allProducts = [];
+        let cart = [];
+
+        // --- IMAGE PRELOADER LOGIC ---
+        function preloadImages(products) {
+            const promises = products.map(p => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.src = p.image;
+                    img.onload = resolve;  
+                    img.onerror = resolve; 
+                });
+            });
+            return Promise.all(promises);
+        }
+
+        // --- UPDATED API FALLBACK & INITIALIZATION ---
+        async function init() {
+            try {
+                const res = await fetch('https://api.escuelajs.co/api/v1/products');
+                if (!res.ok) throw new Error("API completely unresponsive"); 
+                
+                const data = await res.json();
+                
+                // NEW: Force an error if the API is completely empty so we trigger the backup plan
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error("API returned empty data");
+                }
+
+                const apiItems = data.slice(0, 6).map((p, index) => ({
+                    id: p.id || (index + 2000), 
+                    // Safely handle missing titles/prices if the API is corrupted
+                    title: typeof p.title === 'string' && p.title.length > 0 ? p.title : `Archive Artifact ${index + 1}`,
+                    price: p.price ? (p.price * 56) : 1200, 
+                    image: `https://placehold.co/400x400/111/fff?text=API+ARTIFACT+${index + 1}`,
+                    desc: "Official Archive item fetched from external network."
+                }));
+                
+                allProducts = [...customItems, ...apiItems];
+                
+                // Failsafe: if the API had less than 6 items, fill up to 25
+                while (allProducts.length < 25) {
+                    allProducts.push({
+                        id: 3000 + allProducts.length,
+                        title: `Secure Backup ${allProducts.length - 19 + 1}`,
+                        price: 999,
+                        image: `https://placehold.co/400x400/333/fff?text=BACKUP+${allProducts.length - 19 + 1}`,
+                        desc: "Automated network backup generated."
+                    });
+                }
+
+            } catch (e) { 
+                console.warn("External data failed to load. Booting in Offline Mode.", e);
+                allProducts = [...customItems]; 
+                
+                // NEW: If we are offline, generate the 6 missing items manually to hit 25
+                while (allProducts.length < 25) {
+                    const fillIndex = allProducts.length - customItems.length + 1;
+                    allProducts.push({
+                        id: 4000 + fillIndex,
+                        title: `Offline Archive Item ${fillIndex}`,
+                        price: 1250,
+                        image: `https://placehold.co/400x400/222/ddd?text=OFFLINE+ITEM+${fillIndex}`,
+                        desc: "Secure offline backup generated."
+                    });
+                }
+            }
+
+            // 1. Wait for all images to download invisibly
+            await preloadImages(allProducts);
+
+            // 2. Render the HTML grid
+            renderGrid(allProducts);
+
+            // 3. Fade out the loading screen
+            const loader = document.getElementById('loaderScreen');
+            if(loader) loader.classList.add('fade-out');
+            
+            // 4. Trigger the smooth slide-up animation on the product grid
+            const grid = document.getElementById('product-list');
+            if(grid) grid.classList.add('grid-enter');
+
+            // 5. Fully remove loader from the DOM after animation finishes
+            if(loader) setTimeout(() => { loader.style.display = 'none'; }, 800);
+        }
+
+        function renderGrid(productsToDisplay) {
+            const container = document.getElementById('product-list');
+            if (productsToDisplay.length === 0) {
+                container.innerHTML = `<div class="no-matches">--- [ NO MATCHING DATA FOUND ] ---</div>`;
+                return;
+            }
+            container.innerHTML = productsToDisplay.map(p => `
+                <div class="product-card" onclick="openProduct(${p.id})">
+                    <img src="${p.image}" onerror="this.src='https://placehold.co/400?text=Paradigm'">
+                    <h4>${p.title}</h4>
+                    <p class="price">₱${p.price.toLocaleString()}</p>
+                    <button class="btn" onclick="event.stopPropagation(); addToCart(${p.id})">Add to Cart</button>
+                </div>
+            `).join('');
+        }
+
+        // --- NUMERICAL FILTERS ---
+        window.applyFilters = () => {
+            const query = document.getElementById('archiveSearch').value.toLowerCase().trim();
+            const minStr = document.getElementById('minPrice').value;
+            const maxStr = document.getElementById('maxPrice').value;
+            
+            let min = minStr === "" ? 0 : Math.abs(parseFloat(minStr));
+            let max = maxStr === "" ? Infinity : Math.abs(parseFloat(maxStr));
+
+            if (min > max && max !== Infinity) {
+                let temp = min;
+                min = max;
+                max = temp;
+            }
+
+            const filtered = allProducts.filter(p => {
+                const matchesSearch = p.title.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
+                const matchesPrice = p.price >= min && p.price <= max;
+                return matchesSearch && matchesPrice;
+            });
+            renderGrid(filtered);
+        };
+
+        document.getElementById('archiveSearch').addEventListener('input', applyFilters);
+
+        // --- MAGNIFYING GLASS UI INTEGRATION ---
+        window.openProduct = (id) => {
+            playSound();
+            const p = allProducts.find(x => x.id === id);
+            
+            document.getElementById('productDetailContent').innerHTML = `
+                <div class="product-detail-flex">
+                    <div class="img-zoom-container" onmousemove="zoomImage(event, this)" onmouseleave="resetZoom(this)">
+                        <img src="${p.image}" onerror="this.src='https://placehold.co/800?text=Paradigm'">
+                    </div>
+                    <div class="detail-info">
+                        <div>
+                            <h2 style="font-size:24px; letter-spacing:4px; text-transform:uppercase; margin-bottom:15px;">${p.title}</h2>
+                            <p style="font-size:12px; color:#aaa; line-height:1.8; letter-spacing:1px;">${p.desc}</p>
+                        </div>
+                        <div>
+                            <p style="font-size:20px; color:#3b82f6; font-family:monospace; margin-bottom:20px;">₱${p.price.toLocaleString()}</p>
+                            <button class="btn btn-blue" onclick="addToCart(${p.id})">Confirm Add to Cart</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.getElementById('productModal').classList.add('active');
+        };
+
+        // --- MAGNIFYING GLASS LOGIC ---
+        window.zoomImage = (e, container) => {
+            const img = container.querySelector('img');
+            const rect = container.getBoundingClientRect();
+            
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            
+            img.style.transformOrigin = `${x}% ${y}%`;
+            img.style.transform = "scale(2.5)"; 
+        };
+
+        window.resetZoom = (container) => {
+            const img = container.querySelector('img');
+            img.style.transform = "scale(1)";
+            img.style.transformOrigin = "center center";
+        };
+
+        window.addToCart = (id) => {
+            playSound();
+            const p = allProducts.find(x => x.id === id);
+            const item = cart.find(i => i.id === id);
+            if (item) item.quantity++;
+            else cart.push({ id: p.id, name: p.title, price: p.price, quantity: 1 });
+            updateCartUI();
+        };
+
+        window.increaseQty = (id) => {
+            const item = cart.find(i => i.id === id);
+            if(item) item.quantity++;
+            updateCartUI();
+        };
+
+        window.decreaseQty = (id) => {
+            const item = cart.find(i => i.id === id);
+            if(item && item.quantity > 1) {
+                item.quantity--;
+            } else {
+                window.removeFromCart(id);
+            }
+            updateCartUI();
+        };
+
+        window.removeFromCart = (id) => {
+            cart = cart.filter(i => i.id !== id);
+            updateCartUI();
+        };
+
+        function updateCartUI() {
+            const list = document.getElementById('cart-items-list');
+            const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+            const count = cart.reduce((sum, i) => sum + i.quantity, 0);
+            
+            document.getElementById('checkoutTrigger').textContent = `Execute Order (${count})`;
+            document.getElementById('total-price').textContent = total.toLocaleString(undefined, {minimumFractionDigits: 2});
+            
+            list.innerHTML = cart.map(i => `
+                <div class="checkout-item">
+                    <span style="flex:1;">${i.name}</span>
+                    <div style="display:flex; align-items:center; gap:8px; margin: 0 15px;">
+                        <button class="qty-btn" onclick="decreaseQty(${i.id})">-</button>
+                        <span>${i.quantity}</span>
+                        <button class="qty-btn" onclick="increaseQty(${i.id})">+</button>
+                    </div>
+                    <span style="color:#3b82f6; width:80px; text-align:right;">₱${(i.price * i.quantity).toLocaleString()}</span>
+                    <button class="remove-btn" onclick="removeFromCart(${i.id})">X</button>
+                </div>
+            `).join('') || '<p style="text-align:center; color:#444; padding:20px;">CART EMPTY</p>';
+        }
+
+        window.processCheckout = () => {
+            if (cart.length === 0) return;
+            const btn = document.getElementById('confirmCheckoutBtn');
+            const status = document.getElementById('status-msg');
+            btn.disabled = true;
+            status.innerHTML = "COMMENCING ENCRYPTED UPLOAD...";
+            
+            setTimeout(() => {
+                const isSuccess = Math.random() > 0.2;
+
+                if (isSuccess) {
+                    const totalCost = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                    const payload = {
+                        userInfo: { email: user.email, username: user.username },
+                        cartItems: cart,
+                        totalPrice: totalCost,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    localStorage.setItem('paradigm_last_order', JSON.stringify(payload));
+                    
+                    status.innerHTML = "<span style='color:#3b82f6'>ORDER DEPLOYED SUCCESSFULLY. PAYLOAD SAVED.</span>";
+                    cart = []; 
+                    updateCartUI();
+                    
+                    setTimeout(() => closeModal('checkoutModal'), 2500);
+                } else {
+                    status.innerHTML = "<span style='color:#ff4d4d'>ERROR: TRANSMISSION FAILED. PLEASE RETRY.</span>";
+                }
+                
+                btn.disabled = false;
+            }, 2000);
+        };
+
+        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+        document.getElementById('checkoutTrigger').addEventListener('click', () => {
+            document.getElementById('checkoutModal').classList.add('active');
+            document.getElementById('status-msg').innerHTML = "";
+        });
+        document.getElementById('themeToggleBtn').addEventListener('click', () => document.documentElement.classList.toggle('light-mode'));
+        document.getElementById('logoutBtn').addEventListener('click', () => logout());
+        
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sign Up | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; display: flex; flex-direction: column; font-family: 'Helvetica Neue', Arial, sans-serif; color: #fff; overflow-x: hidden; background: #000; user-select: none; -webkit-user-select: none; }
+        input { user-select: auto; -webkit-user-select: auto; } 
+        
+        body::before { 
+            content: ""; position: fixed; top: -10%; left: -10%; width: 120vw; height: 120vh; 
+            background-image: url('https://img.freepik.com/free-photo/grayscale-futuristic-abstract-background-with-light-effects_181624-16494.jpg');
+            background-size: cover; background-position: center; z-index: -2;
+            animation: glowzoom 12s infinite alternate ease-in-out;
+        }
+        body::after { content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: -1; transition: background 0.5s; }
+
+        @keyframes glowzoom { 0% { transform: scale(1); filter: brightness(0.3) saturate(1) blur(6px); opacity: 0.5; } 100% { transform: scale(1.15); filter: brightness(1.5) saturate(2.5) blur(0px); opacity: 1; } }
+
+        .theme-btn { position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 12px 20px; font-size: 10px; font-weight: bold; font-family: monospace; letter-spacing: 3px; cursor: pointer; backdrop-filter: blur(5px); z-index: 1000; transition: all 0.3s ease; text-transform: uppercase; }
+        .theme-btn:hover { background: #fff; color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
+
+        .page-header { padding: 40px; text-align: center; text-transform: uppercase; position: relative; z-index: 10; margin-top: 30px;}
+        .page-header h1 { font-size: 45px; font-weight: 300; letter-spacing: 12px; margin-bottom: 5px; animation: header-breathe 6s infinite alternate ease-in-out; }
+        .page-header h3 { font-size: 12px; font-weight: 400; color: #aaa; letter-spacing: 6px; }
+        @keyframes header-breathe { 0% { opacity: 0.7; text-shadow: 0 0 5px rgba(255,255,255,0.2); } 100% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(100,200,255,0.5); } }
+
+        .wrapper { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; z-index: 10;}
+        
+        .container { background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(10px); width: 100%; max-width: 480px; padding: 50px 65px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(0,0,0,0.8); position: relative; transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.5s; }
+        .container:hover { border-color: rgba(255,255,255,0.6); box-shadow: 0 0 40px rgba(255,255,255,0.1); }
+        
+        .sticker-left { position: absolute; left: 20px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; font-family: monospace; color: #444; letter-spacing: 4px; pointer-events: none; opacity: 0.7; }
+        .sticker-right { position: absolute; right: 20px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 10px; font-family: monospace; color: #444; letter-spacing: 4px; pointer-events: none; opacity: 0.7; }
+
+        .title-box { border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 35px; text-align: left; }
+        .title-box h2 { font-size: 18px; font-weight: 300; text-transform: uppercase; letter-spacing: 5px; color: #fff; }
+        
+        .form-group { margin-bottom: 30px; position: relative; }
+        label { display: block; font-size: 10px; text-transform: uppercase; color: #aaa; margin-bottom: 8px; letter-spacing: 2px; }
+        
+        input { width: 100%; padding: 12px 0; border: none; border-bottom: 1px solid #555; background: transparent; color: #fff; font-size: 15px; outline: none; transition: border-color 0.3s, text-shadow 0.3s; font-family: monospace; caret-color: #fff !important; }
+        input:focus { border-bottom: 1px solid #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
+        input::placeholder { color: #555; }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px rgba(5, 5, 5, 0.9) inset !important; -webkit-text-fill-color: white !important; transition: background-color 5000s ease-in-out 0s; }
+
+        .phone-group { display: flex; gap: 15px; }
+        .custom-phone-select { position: relative; width: 140px; }
+        .select-trigger { display: flex; align-items: center; border-bottom: 1px solid #555; transition: border-color 0.3s; cursor: text; padding-bottom: 0px;}
+        .select-trigger:focus-within { border-bottom: 1px solid #fff; }
+        
+        #selectedFlag { display: flex; align-items: center; margin-right: 8px; pointer-events: none; }
+        #selectedFlag img { border-radius: 2px; }
+        
+        #countrySearch { width: 100%; border: none !important; padding: 12px 0 !important; background: transparent; color: #fff; font-family: monospace; font-size: 15px; outline: none; box-shadow: none !important;}
+        #countrySearch:focus { text-shadow: 0 0 8px rgba(255,255,255,0.5); }
+        
+        .country-dropdown { position: absolute; top: calc(100% + 5px); left: -10px; width: 280px; max-height: 220px; overflow-y: auto; background: rgba(10,10,10,0.95); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(15px); list-style: none; padding: 0; margin: 0; z-index: 100; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.9); }
+        .country-dropdown.active { display: block; animation: fade-in 0.2s ease; }
+        .country-dropdown li { padding: 12px 15px; font-size: 12px; font-family: monospace; color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s, color 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);}
+        .country-dropdown li:last-child { border-bottom: none; }
+        .country-dropdown li:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .country-dropdown li span.code { font-weight: bold; color: #fff; width: 45px; }
+        .country-dropdown li img { border-radius: 2px; }
+        
+        .country-dropdown::-webkit-scrollbar { width: 4px; }
+        .country-dropdown::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        .country-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
+
+        .password-wrapper { position: relative; display: flex; align-items: center; }
+        .toggle-pass { position: absolute; right: 0; cursor: pointer; font-size: 14px; opacity: 0.5; transition: opacity 0.3s; }
+        .toggle-pass:hover { opacity: 1; text-shadow: 0 0 10px #fff; }
+        
+        .error-dialog { display: none; color: #ff4444; font-size: 11px; margin-top: 8px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; text-shadow: 0 0 5px rgba(255, 68, 68, 0.5); }
+        @keyframes error-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
+        .error-dialog.active { display: block; animation: error-shake 0.3s ease-in-out; }
+        
+        button[type="submit"] { width: 100%; padding: 18px; border: 1px solid #fff; background: transparent; color: #fff; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 4px; cursor: pointer; transition: all 0.4s ease; margin-top: 20px; position: relative; overflow: hidden; }
+        button[type="submit"]::before { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: #fff; transition: left 0.4s ease; z-index: -1; }
+        button[type="submit"]:hover { color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.4); }
+        button[type="submit"]:hover::before { left: 0; }
+        
+        .link { margin-top: 30px; font-size: 11px; text-align: center; text-decoration: none; color: #888; display: block; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: color 0.3s; }
+        .link:hover { color: #fff; text-shadow: 0 0 8px #fff; }
+        
+        .footer { text-align: center; padding: 30px; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 3px; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); z-index: 10; position: relative;}
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.98) 100%); z-index: 9999; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.8s ease; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-card { background: rgba(5,5,5,0.9); border: 1px solid rgba(255,255,255,0.5); padding: 50px; text-align: center; box-shadow: 0 0 40px rgba(100,200,255,0.3); transform: scale(0.9); transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .modal-overlay.active .modal-card { transform: scale(1); }
+        .modal-card h2 { font-size: 24px; font-weight: 300; letter-spacing: 8px; text-transform: uppercase; margin-bottom: 15px; text-shadow: 0 0 15px #fff; color: #fff; }
+        .modal-card p { font-size: 12px; color: #aaa; letter-spacing: 2px; text-transform: uppercase; }
+
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 500px) { .sticker-left, .sticker-right { display: none; } } 
+
+        html.light-mode body { color: #000; }
+        html.light-mode body::after { background: rgba(255,255,255,0.7); }
+        html.light-mode .container { background: rgba(255,255,255,0.65); border-color: rgba(0,0,0,0.2); box-shadow: 0 0 30px rgba(0,0,0,0.15); }
+        html.light-mode .container:hover { border-color: #000; box-shadow: 0 0 40px rgba(0,0,0,0.3); }
+        html.light-mode .page-header h1 { color: #000; animation: header-breathe-light 6s infinite alternate ease-in-out; }
+        html.light-mode .title-box h2, html.light-mode input { color: #000; }
+        html.light-mode input { border-bottom: 1px solid #ccc; caret-color: #000 !important; }
+        html.light-mode input:focus { border-bottom: 1px solid #000; text-shadow: 0 0 8px rgba(0,0,0,0.3); }
+        html.light-mode button[type="submit"] { border-color: #000; color: #000; }
+        html.light-mode button[type="submit"]::before { background: #000; }
+        html.light-mode button[type="submit"]:hover { color: #fff; }
+        html.light-mode .link:hover { color: #000; text-shadow: 0 0 8px #000; }
+        html.light-mode input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.9) inset !important; -webkit-text-fill-color: black !important; }
+        html.light-mode .modal-card { background: rgba(255,255,255,0.95); border-color: #000; box-shadow: 0 0 40px rgba(0,0,0,0.3); }
+        html.light-mode .modal-overlay { background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.95) 100%); }
+        html.light-mode .modal-card h2 { color: #000; text-shadow: none; }
+        html.light-mode .theme-btn { background: rgba(255,255,255,0.8); color: #000; border-color: #000; }
+        html.light-mode .theme-btn:hover { background: #000; color: #fff; box-shadow: 0 0 15px #000; }
+        
+        html.light-mode .select-trigger { border-bottom: 1px solid #ccc; }
+        html.light-mode .select-trigger:focus-within { border-bottom: 1px solid #000; }
+        html.light-mode .country-dropdown { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        html.light-mode .country-dropdown li { color: #555; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        html.light-mode .country-dropdown li:hover { background: rgba(0,0,0,0.05); color: #000; }
+        html.light-mode .country-dropdown li span.code { color: #000; }
+        html.light-mode .country-dropdown::-webkit-scrollbar-track { background: rgba(255,255,255,0.5); }
+        html.light-mode .country-dropdown::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); }
+
+        @keyframes header-breathe-light { 0% { opacity: 0.8; text-shadow: 0 0 5px rgba(0,0,0,0.1); } 100% { opacity: 1; text-shadow: 0 0 20px rgba(0,0,0,0.4), 0 0 40px rgba(100,200,255,0.3); } }
+
+        html.light-mode .page-header h3, html.light-mode label, html.light-mode .footer { color: #111; font-weight: 600; }
+        html.light-mode .sticker-left, html.light-mode .sticker-right { color: #111; opacity: 0.8; }
+        html.light-mode .modal-card p { color: #222; }
+    </style>
+</head>
+<body>
+
+    <button class="theme-btn" id="themeToggleBtn">🌓 Theme</button>
+
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3>Clothing Projects</h3>
+    </div>
+
+    <div class="wrapper">
+        <div class="container">
+            <div class="sticker-left">SYS.VER.26.1</div>
+            <div class="sticker-right">AUTH_REQ // SEC_LVL_1</div>
+
+            <div class="title-box">
+                <h2>Initialize Profile</h2>
+            </div>
+            
+            <form id="signupForm" novalidate>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="signupUsername" placeholder="Enter display name" required />
+                    <div class="error-dialog" id="signupUsernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="signupEmail" placeholder="user@domain.com" required />
+                    <div class="error-dialog" id="signupEmailError" data-orig="Invalid Email Format.">Invalid Email Format.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone</label>
+                    <div class="phone-group">
+                        <div class="custom-phone-select" id="customPhoneSelect">
+                            <div class="select-trigger" id="selectTrigger">
+                                <span id="selectedFlag"><img src="https://flagcdn.com/w20/ph.png" width="20" alt="ph"></span>
+                                <input type="text" id="countrySearch" placeholder="+63" value="+63" autocomplete="off" />
+                            </div>
+                            <ul class="country-dropdown" id="countryDropdown"></ul>
+                        </div>
+                        <input type="text" id="signupPhone" placeholder="912 345 6789" required maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'');" />
+                    </div>
+                    <div class="error-dialog" id="signupPhoneError" data-orig="Must be exactly 10 digits after country code.">Must be exactly 10 digits after country code.</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Passcode</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="signupPassword" required />
+                        <span class="toggle-pass" id="togglePass">👁️</span>
+                    </div>
+                    <div class="error-dialog" id="signupPasswordError" data-orig="Passcode requires at least 8+ chars, 2 numbers, and 2 symbols.">Passcode requires at least 8+ chars, 2 numbers, and 2 symbols.</div>
+                </div>
+
+                <button type="submit" id="submitBtn">Register Profile</button>
+            </form>
+            <a href="Login.html" class="link" id="loginLink">Profile Already Exists? Authenticate</a>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="successModal">
+        <div class="modal-card">
+            <h2>Profile Confirmed</h2>
+            <p>Routing to Profile Authentication...</p>
+        </div>
+    </div>
+
+    <footer class="footer">Paradigm Clothing Projects · All Rights Reserved</footer>
+
+    <script type="module">
+        import { signup, getCurrentUser } from './auth.js';
+
+        let audioCtx;
+        function playSound(type) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'click') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            }
+        }
+
+        document.getElementById('themeToggleBtn').addEventListener('click', () => playSound('click'));
+        document.getElementById('togglePass').addEventListener('click', () => playSound('click'));
+        document.getElementById('loginLink').addEventListener('click', () => playSound('click'));
+
+        const countries = [
+    { name: "Afghanistan", code: "+93", iso: "af", flag: "🇦🇫" },
+    { name: "Albania", code: "+355", iso: "al", flag: "🇦🇱" },
+    { name: "Algeria", code: "+213", iso: "dz", flag: "🇩🇿" },
+    { name: "Andorra", code: "+376", iso: "ad", flag: "🇦🇩" },
+    { name: "Angola", code: "+244", iso: "ao", flag: "🇦🇴" },
+    { name: "Antigua and Barbuda", code: "+1 (268)", iso: "ag", flag: "🇦🇬" },
+    { name: "Argentina", code: "+54", iso: "ar", flag: "🇦🇷" },
+    { name: "Armenia", code: "+374", iso: "am", flag: "🇦🇲" },
+    { name: "Australia", code: "+61", iso: "au", flag: "🇦🇺" },
+    { name: "Austria", code: "+43", iso: "at", flag: "🇦🇹" },
+    { name: "Azerbaijan", code: "+994", iso: "az", flag: "🇦🇿" },
+    { name: "Bahamas", code: "+1 (242)", iso: "bs", flag: "🇧🇸" },
+    { name: "Bahrain", code: "+973", iso: "bh", flag: "🇧🇭" },
+    { name: "Bangladesh", code: "+880", iso: "bd", flag: "🇧🇩" },
+    { name: "Barbados", code: "+1 (246)", iso: "bb", flag: "🇧🇧" },
+    { name: "Belarus", code: "+375", iso: "by", flag: "🇧🇾" },
+    { name: "Belgium", code: "+32", iso: "be", flag: "🇧🇪" },
+    { name: "Belize", code: "+501", iso: "bz", flag: "🇧🇿" },
+    { name: "Benin", code: "+229", iso: "bj", flag: "🇧🇯" },
+    { name: "Bhutan", code: "+975", iso: "bt", flag: "🇧🇹" },
+    { name: "Bolivia", code: "+591", iso: "bo", flag: "🇧🇴" },
+    { name: "Bosnia and Herzegovina", code: "+387", iso: "ba", flag: "🇧🇦" },
+    { name: "Botswana", code: "+267", iso: "bw", flag: "🇧🇼" },
+    { name: "Brazil", code: "+55", iso: "br", flag: "🇧🇷" },
+    { name: "Brunei", code: "+673", iso: "bn", flag: "🇧🇳" },
+    { name: "Bulgaria", code: "+359", iso: "bg", flag: "🇧🇬" },
+    { name: "Burkina Faso", code: "+226", iso: "bf", flag: "🇧🇫" },
+    { name: "Burundi", code: "+257", iso: "bi", flag: "🇧🇮" },
+    { name: "Cabo Verde", code: "+238", iso: "cv", flag: "🇨🇻" },
+    { name: "Cambodia", code: "+855", iso: "kh", flag: "🇰🇭" },
+    { name: "Cameroon", code: "+237", iso: "cm", flag: "🇨🇲" },
+    { name: "Canada", code: "+1", iso: "ca", flag: "🇨🇦" },
+    { name: "Central African Republic", code: "+236", iso: "cf", flag: "🇨🇫" },
+    { name: "Chad", code: "+235", iso: "td", flag: "🇹🇩" },
+    { name: "Chile", code: "+56", iso: "cl", flag: "🇨🇱" },
+    { name: "China", code: "+86", iso: "cn", flag: "🇨🇳" },
+    { name: "Colombia", code: "+57", iso: "co", flag: "🇨🇴" },
+    { name: "Comoros", code: "+269", iso: "km", flag: "🇰🇲" },
+    { name: "Congo, Democratic Republic of the", code: "+243", iso: "cd", flag: "🇨🇩" },
+    { name: "Congo, Republic of the", code: "+242", iso: "cg", flag: "🇨🇬" },
+    { name: "Costa Rica", code: "+506", iso: "cr", flag: "🇨🇷" },
+    { name: "Croatia", code: "+385", iso: "hr", flag: "🇭🇷" },
+    { name: "Cuba", code: "+53", iso: "cu", flag: "🇨🇺" },
+    { name: "Cyprus", code: "+357", iso: "cy", flag: "🇨🇾" },
+    { name: "Czech Republic", code: "+420", iso: "cz", flag: "🇨🇿" },
+    { name: "Denmark", code: "+45", iso: "dk", flag: "🇩🇰" },
+    { name: "Djibouti", code: "+253", iso: "dj", flag: "🇩🇯" },
+    { name: "Dominica", code: "+1 (767)", iso: "dm", flag: "🇩🇲" },
+    { name: "Dominican Republic", code: "+1 (809, 829, 849)", iso: "do", flag: "🇩🇴" },
+    { name: "East Timor (Timor-Leste)", code: "+670", iso: "tl", flag: "🇹🇱" },
+    { name: "Ecuador", code: "+593", iso: "ec", flag: "🇪🇨" },
+    { name: "Egypt", code: "+20", iso: "eg", flag: "🇪🇬" },
+    { name: "El Salvador", code: "+503", iso: "sv", flag: "🇸🇻" },
+    { name: "Equatorial Guinea", code: "+240", iso: "gq", flag: "🇬🇶" },
+    { name: "Eritrea", code: "+291", iso: "er", flag: "🇪🇷" },
+    { name: "Estonia", code: "+372", iso: "ee", flag: "🇪🇪" },
+    { name: "Eswatini", code: "+268", iso: "sz", flag: "🇸🇿" },
+    { name: "Ethiopia", code: "+251", iso: "et", flag: "🇪🇹" },
+    { name: "Fiji", code: "+679", iso: "fj", flag: "🇫🇯" },
+    { name: "Finland", code: "+358", iso: "fi", flag: "🇫🇮" },
+    { name: "France", code: "+33", iso: "fr", flag: "🇫🇷" },
+    { name: "Gabon", code: "+241", iso: "ga", flag: "🇬🇦" },
+    { name: "Gambia", code: "+220", iso: "gm", flag: "🇬🇲" },
+    { name: "Georgia", code: "+995", iso: "ge", flag: "🇬🇪" },
+    { name: "Germany", code: "+49", iso: "de", flag: "🇩🇪" },
+    { name: "Ghana", code: "+233", iso: "gh", flag: "🇬🇭" },
+    { name: "Greece", code: "+30", iso: "gr", flag: "🇬🇷" },
+    { name: "Grenada", code: "+1 (473)", iso: "gd", flag: "🇬🇩" },
+    { name: "Guatemala", code: "+502", iso: "gt", flag: "🇬🇹" },
+    { name: "Guinea", code: "+224", iso: "gn", flag: "🇬🇳" },
+    { name: "Guinea-Bissau", code: "+245", iso: "gw", flag: "🇬🇼" },
+    { name: "Guyana", code: "+592", iso: "gy", flag: "🇬🇾" },
+    { name: "Haiti", code: "+509", iso: "ht", flag: "🇭🇹" },
+    { name: "Honduras", code: "+504", iso: "hn", flag: "🇭🇳" },
+    { name: "Hungary", code: "+36", iso: "hu", flag: "🇭🇺" },
+    { name: "Iceland", code: "+354", iso: "is", flag: "🇮🇸" },
+    { name: "India", code: "+91", iso: "in", flag: "🇮🇳" },
+    { name: "Indonesia", code: "+62", iso: "id", flag: "🇮🇩" },
+    { name: "Iran", code: "+98", iso: "ir", flag: "🇮🇷" },
+    { name: "Iraq", code: "+964", iso: "iq", flag: "🇮🇶" },
+    { name: "Ireland", code: "+353", iso: "ie", flag: "🇮🇪" },
+    { name: "Israel", code: "+972", iso: "il", flag: "🇮🇱" },
+    { name: "Italy", code: "+39", iso: "it", flag: "🇮🇹" },
+    { name: "Ivory Coast (Côte d'Ivoire)", code: "+225", iso: "ci", flag: "🇨🇮" },
+    { name: "Jamaica", code: "+1 (876)", iso: "jm", flag: "🇯🇲" },
+    { name: "Japan", code: "+81", iso: "jp", flag: "🇯🇵" },
+    { name: "Jordan", code: "+962", iso: "jo", flag: "🇯🇴" },
+    { name: "Kazakhstan", code: "+7", iso: "kz", flag: "🇰🇿" },
+    { name: "Kenya", code: "+254", iso: "ke", flag: "🇰🇪" },
+    { name: "Kiribati", code: "+686", iso: "ki", flag: "🇰🇮" },
+    { name: "Korea, North", code: "+850", iso: "kp", flag: "🇰🇵" },
+    { name: "Korea, South", code: "+82", iso: "kr", flag: "🇰🇷" },
+    { name: "Kosovo", code: "+383", iso: "xk", flag: "🇽🇰" },
+    { name: "Kuwait", code: "+965", iso: "kw", flag: "🇰🇼" },
+    { name: "Kyrgyzstan", code: "+996", iso: "kg", flag: "🇰🇬" },
+    { name: "Laos", code: "+856", iso: "la", flag: "🇱🇦" },
+    { name: "Latvia", code: "+371", iso: "lv", flag: "🇱🇻" },
+    { name: "Lebanon", code: "+961", iso: "lb", flag: "🇱🇧" },
+    { name: "Lesotho", code: "+266", iso: "ls", flag: "🇱🇸" },
+    { name: "Liberia", code: "+231", iso: "lr", flag: "🇱🇷" },
+    { name: "Libya", code: "+218", iso: "ly", flag: "🇱🇾" },
+    { name: "Liechtenstein", code: "+423", iso: "li", flag: "🇱🇮" },
+    { name: "Lithuania", code: "+370", iso: "lt", flag: "🇱🇹" },
+    { name: "Luxembourg", code: "+352", iso: "lu", flag: "🇱🇺" },
+    { name: "Madagascar", code: "+261", iso: "mg", flag: "🇲🇬" },
+    { name: "Malawi", code: "+265", iso: "mw", flag: "🇲🇼" },
+    { name: "Malaysia", code: "+60", iso: "my", flag: "🇲🇾" },
+    { name: "Maldives", code: "+960", iso: "mv", flag: "🇲🇻" },
+    { name: "Mali", code: "+223", iso: "ml", flag: "🇲🇱" },
+    { name: "Malta", code: "+356", iso: "mt", flag: "🇲🇹" },
+    { name: "Marshall Islands", code: "+692", iso: "mh", flag: "🇲🇭" },
+    { name: "Mauritania", code: "+222", iso: "mr", flag: "🇲🇷" },
+    { name: "Mauritius", code: "+230", iso: "mu", flag: "🇲🇺" },
+    { name: "Mexico", code: "+52", iso: "mx", flag: "🇲🇽" },
+    { name: "Micronesia", code: "+691", iso: "fm", flag: "🇫🇲" },
+    { name: "Moldova", code: "+373", iso: "md", flag: "🇲🇩" },
+    { name: "Monaco", code: "+377", iso: "mc", flag: "🇲🇨" },
+    { name: "Mongolia", code: "+976", iso: "mn", flag: "🇲🇳" },
+    { name: "Montenegro", code: "+382", iso: "me", flag: "🇲🇪" },
+    { name: "Morocco", code: "+212", iso: "ma", flag: "🇲🇦" },
+    { name: "Mozambique", code: "+258", iso: "mz", flag: "🇲🇿" },
+    { name: "Myanmar (Burma)", code: "+95", iso: "mm", flag: "🇲🇲" },
+    { name: "Namibia", code: "+264", iso: "na", flag: "🇳🇦" },
+    { name: "Nauru", code: "+674", iso: "nr", flag: "🇳🇷" },
+    { name: "Nepal", code: "+977", iso: "np", flag: "🇳🇵" },
+    { name: "Netherlands", code: "+31", iso: "nl", flag: "🇳🇱" },
+    { name: "New Zealand", code: "+64", iso: "nz", flag: "🇳🇿" },
+    { name: "Nicaragua", code: "+505", iso: "ni", flag: "🇳🇮" },
+    { name: "Niger", code: "+227", iso: "ne", flag: "🇳🇪" },
+    { name: "Nigeria", code: "+234", iso: "ng", flag: "🇳🇬" },
+    { name: "North Macedonia", code: "+389", iso: "mk", flag: "🇲🇰" },
+    { name: "Norway", code: "+47", iso: "no", flag: "🇳🇴" },
+    { name: "Oman", code: "+968", iso: "om", flag: "🇴🇲" },
+    { name: "Pakistan", code: "+92", iso: "pk", flag: "🇵🇰" },
+    { name: "Palau", code: "+680", iso: "pw", flag: "🇵🇼" },
+    { name: "Palestine", code: "+970", iso: "ps", flag: "🇵🇸" },
+    { name: "Panama", code: "+507", iso: "pa", flag: "🇵🇦" },
+    { name: "Papua New Guinea", code: "+675", iso: "pg", flag: "🇵🇬" },
+    { name: "Paraguay", code: "+595", iso: "py", flag: "🇵🇾" },
+    { name: "Peru", code: "+51", iso: "pe", flag: "🇵🇪" },
+    { name: "Philippines", code: "+63", iso: "ph", flag: "🇵🇭" },
+    { name: "Poland", code: "+48", iso: "pl", flag: "🇵🇱" },
+    { name: "Portugal", code: "+351", iso: "pt", flag: "🇵🇹" },
+    { name: "Qatar", code: "+974", iso: "qa", flag: "🇶🇦" },
+    { name: "Romania", code: "+40", iso: "ro", flag: "🇷🇴" },
+    { name: "Russia", code: "+7", iso: "ru", flag: "🇷🇺" },
+    { name: "Rwanda", code: "+250", iso: "rw", flag: "🇷🇼" },
+    { name: "Saint Kitts and Nevis", code: "+1 (869)", iso: "kn", flag: "🇰🇳" },
+    { name: "Saint Lucia", code: "+1 (758)", iso: "lc", flag: "🇱🇨" },
+    { name: "Saint Vincent and the Grenadines", code: "+1 (784)", iso: "vc", flag: "🇻🇨" },
+    { name: "Samoa", code: "+685", iso: "ws", flag: "🇼🇸" },
+    { name: "San Marino", code: "+378", iso: "sm", flag: "🇸🇲" },
+    { name: "Sao Tome and Principe", code: "+239", iso: "st", flag: "🇸🇹" },
+    { name: "Saudi Arabia", code: "+966", iso: "sa", flag: "🇸🇦" },
+    { name: "Senegal", code: "+221", iso: "sn", flag: "🇸🇳" },
+    { name: "Serbia", code: "+381", iso: "rs", flag: "🇷🇸" },
+    { name: "Seychelles", code: "+248", iso: "sc", flag: "🇸🇨" },
+    { name: "Sierra Leone", code: "+232", iso: "sl", flag: "🇸🇱" },
+    { name: "Singapore", code: "+65", iso: "sg", flag: "🇸🇬" },
+    { name: "Slovakia", code: "+421", iso: "sk", flag: "🇸🇰" },
+    { name: "Slovenia", code: "+386", iso: "si", flag: "🇸🇮" },
+    { name: "Solomon Islands", code: "+677", iso: "sb", flag: "🇸🇧" },
+    { name: "Somalia", code: "+252", iso: "so", flag: "🇸🇴" },
+    { name: "South Africa", code: "+27", iso: "za", flag: "🇿🇦" },
+    { name: "South Sudan", code: "+211", iso: "ss", flag: "🇸🇸" },
+    { name: "Spain", code: "+34", iso: "es", flag: "🇪🇸" },
+    { name: "Sri Lanka", code: "+94", iso: "lk", flag: "🇱🇰" },
+    { name: "Sudan", code: "+249", iso: "sd", flag: "🇸🇩" },
+    { name: "Suriname", code: "+597", iso: "sr", flag: "🇸🇷" },
+    { name: "Sweden", code: "+46", iso: "se", flag: "🇸🇪" },
+    { name: "Switzerland", code: "+41", iso: "ch", flag: "🇨🇭" },
+    { name: "Syria", code: "+963", iso: "sy", flag: "🇸🇾" },
+    { name: "Taiwan", code: "+886", iso: "tw", flag: "🇹🇼" },
+    { name: "Tajikistan", code: "+992", iso: "tj", flag: "🇹🇯" },
+    { name: "Tanzania", code: "+255", iso: "tz", flag: "🇹🇿" },
+    { name: "Thailand", code: "+66", iso: "th", flag: "🇹🇭" },
+    { name: "Togo", code: "+228", iso: "tg", flag: "🇹🇬" },
+    { name: "Tonga", code: "+676", iso: "to", flag: "🇹🇴" },
+    { name: "Trinidad and Tobago", code: "+1 (868)", iso: "tt", flag: "🇹🇹" },
+    { name: "Tunisia", code: "+216", iso: "tn", flag: "🇹🇳" },
+    { name: "Turkey", code: "+90", iso: "tr", flag: "🇹🇷" },
+    { name: "Turkmenistan", code: "+993", iso: "tm", flag: "🇹🇲" },
+    { name: "Tuvalu", code: "+688", iso: "tv", flag: "🇹🇻" },
+    { name: "Uganda", code: "+256", iso: "ug", flag: "🇺🇬" },
+    { name: "Ukraine", code: "+380", iso: "ua", flag: "🇺🇦" },
+    { name: "United Arab Emirates", code: "+971", iso: "ae", flag: "🇦🇪" },
+    { name: "United Kingdom", code: "+44", iso: "gb", flag: "🇬🇧" },
+    { name: "United States", code: "+1", iso: "us", flag: "🇺🇸" },
+    { name: "Uruguay", code: "+598", iso: "uy", flag: "🇺🇾" },
+    { name: "Uzbekistan", code: "+998", iso: "uz", flag: "🇺🇿" },
+    { name: "Vanuatu", code: "+678", iso: "vu", flag: "🇻🇺" },
+    { name: "Vatican City", code: "+379", iso: "va", flag: "🇻🇦" },
+    { name: "Venezuela", code: "+58", iso: "ve", flag: "🇻🇪" },
+    { name: "Vietnam", code: "+84", iso: "vn", flag: "🇻🇳" },
+    { name: "Yemen", code: "+967", iso: "ye", flag: "🇾🇪" },
+    { name: "Zambia", code: "+260", iso: "zm", flag: "🇿🇲" },
+    { name: "Zimbabwe", code: "+263", iso: "zw", flag: "🇿🇼" }
+]; 
+
+        const countrySearch = document.getElementById('countrySearch');
+        const countryDropdown = document.getElementById('countryDropdown');
+        const customPhoneSelect = document.getElementById('customPhoneSelect');
+        const selectedFlag = document.getElementById('selectedFlag');
+
+        function renderDropdown(filterStr) {
+            countryDropdown.innerHTML = '';
+            const filtered = countries.filter(c => c.code.replace('+', '').startsWith(filterStr));
+            if(filtered.length === 0) { countryDropdown.innerHTML = '<li style="pointer-events:none; opacity:0.5;">No match found</li>'; return; }
+            filtered.forEach(country => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span><img src="https://flagcdn.com/w20/${country.iso}.png" width="20" alt="${country.iso}"></span> <span class="code">${country.code}</span> <span>${country.name}</span>`;
+                li.addEventListener('click', () => {
+                    playSound('click'); 
+                    countrySearch.value = country.code;
+                    selectedFlag.innerHTML = `<img src="https://flagcdn.com/w20/${country.iso}.png" width="20" alt="${country.iso}">`;
+                    countryDropdown.classList.remove('active');
+                });
+                countryDropdown.appendChild(li);
+            });
+        }
+
+        countrySearch.addEventListener('input', function() { let cleanNum = this.value.replace(/[^0-9]/g, ''); this.value = '+' + cleanNum; renderDropdown(cleanNum); countryDropdown.classList.add('active'); });
+        countrySearch.addEventListener('focus', function() { this.select(); renderDropdown(this.value.replace(/[^0-9]/g, '')); countryDropdown.classList.add('active'); });
+        document.addEventListener('click', (e) => { if (!customPhoneSelect.contains(e.target)) { countryDropdown.classList.remove('active'); } });
+
+        const themeBtn = document.getElementById('themeToggleBtn');
+        themeBtn.addEventListener('click', () => { document.documentElement.classList.toggle('light-mode'); localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark'); });
+
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        if (getCurrentUser()) window.location.href = 'Home.html';
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const phoneRegex = /^\d{10}$/; 
+        const strictPassRegex = /^(?=(?:.*?\d){2})(?=(?:.*?[!@#$%^&*(),.?":{}|<>]){2}).{8,}$/;
+
+        const hideError = (errorId) => { const err = document.getElementById(errorId); err.classList.remove('active'); if(err.dataset.orig) err.textContent = err.dataset.orig; }
+        const validateField = (input, errorId, regex) => {
+            if(!input.value) return false; 
+            const isValid = regex.test(input.value);
+            const err = document.getElementById(errorId);
+            if(!isValid) { err.textContent = err.dataset.orig; err.classList.add('active'); } else { err.classList.remove('active'); }
+            return isValid;
+        };
+
+        const form = document.getElementById('signupForm');
+        form.querySelectorAll('input').forEach(input => { input.addEventListener('input', () => hideError(input.id + 'Error')); });
+
+        document.getElementById('togglePass').addEventListener('click', function() { const input = document.getElementById('signupPassword'); input.type = input.type === "password" ? "text" : "password"; this.style.opacity = input.type === "text" ? "1" : "0.5"; });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            let hasEmpty = false;
+
+            form.querySelectorAll('input[required]').forEach(input => {
+                if (!input.value.trim()) {
+                    const err = document.getElementById(input.id + 'Error');
+                    if(err) { err.textContent = "PLEASE FILL OUT THIS FIELD."; err.classList.remove('active'); void err.offsetWidth; err.classList.add('active'); hasEmpty = true; }
+                }
+            });
+
+            if(hasEmpty) { playSound('error'); return; }
+
+            const isEmailValid = validateField(document.getElementById('signupEmail'), 'signupEmailError', emailRegex);
+            const isPhoneValid = validateField(document.getElementById('signupPhone'), 'signupPhoneError', phoneRegex);
+            const isPassValid = validateField(document.getElementById('signupPassword'), 'signupPasswordError', strictPassRegex);
+
+            if (isEmailValid && isPhoneValid && isPassValid) {
+                const user = document.getElementById('signupUsername').value;
+                const email = document.getElementById('signupEmail').value;
+                const code = document.getElementById('countrySearch').value; 
+                const phoneNum = document.getElementById('signupPhone').value;
+                const fullPhone = `${code} ${phoneNum}`;
+                const pass = document.getElementById('signupPassword').value;
+
+                const isSuccess = signup(user, email, fullPhone, pass);
+                
+                if (isSuccess) {
+                    playSound('success'); 
+                    document.getElementById('successModal').classList.add('active');
+                    setTimeout(() => { window.location.href = 'Login.html'; }, 3500);
+                } else {
+                    playSound('error'); 
+                    const err = document.getElementById('signupEmailError');
+                    err.textContent = "Email already registered.";
+                    err.classList.add('active');
+                }
+            } else {
+                playSound('error'); 
+            }
+        });
+    </script>
+</body>
+</html>
