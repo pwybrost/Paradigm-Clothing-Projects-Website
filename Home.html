@@ -256,7 +256,7 @@
             return Promise.all(promises);
         }
 
-        // --- UPDATED API FALLBACK & INITIALIZATION ---
+        // --- API INITIALIZATION ---
         async function init() {
             try {
                 const res = await fetch('https://api.escuelajs.co/api/v1/products');
@@ -264,23 +264,27 @@
                 
                 const data = await res.json();
                 
-                // NEW: Force an error if the API is completely empty so we trigger the backup plan
                 if (!Array.isArray(data) || data.length === 0) {
                     throw new Error("API returned empty data");
                 }
 
-                const apiItems = data.slice(0, 6).map((p, index) => ({
-                    id: p.id || (index + 2000), 
-                    // Safely handle missing titles/prices if the API is corrupted
-                    title: typeof p.title === 'string' && p.title.length > 0 ? p.title : `Archive Artifact ${index + 1}`,
-                    price: p.price ? (p.price * 56) : 1200, 
-                    image: `https://placehold.co/400x400/111/fff?text=API+ARTIFACT+${index + 1}`,
-                    desc: "Official Archive item fetched from external network."
-                }));
+                const apiItems = data.slice(0, 6).map((p, index) => {
+                    let actualImage = "https://placehold.co/400x400/111/fff?text=Image+Error";
+                    if (p.images && p.images.length > 0) {
+                        actualImage = p.images[0].replace(/[\[\]"]/g, ''); 
+                    }
+
+                    return {
+                        id: p.id || (index + 2000), 
+                        title: typeof p.title === 'string' && p.title.length > 0 ? p.title : `Archive Artifact ${index + 1}`,
+                        price: p.price ? (p.price * 56) : 1200, 
+                        image: actualImage, 
+                        desc: p.description || "Official Archive item fetched from external network."
+                    };
+                });
                 
                 allProducts = [...customItems, ...apiItems];
                 
-                // Failsafe: if the API had less than 6 items, fill up to 25
                 while (allProducts.length < 25) {
                     allProducts.push({
                         id: 3000 + allProducts.length,
@@ -295,7 +299,6 @@
                 console.warn("External data failed to load. Booting in Offline Mode.", e);
                 allProducts = [...customItems]; 
                 
-                // NEW: If we are offline, generate the 6 missing items manually to hit 25
                 while (allProducts.length < 25) {
                     const fillIndex = allProducts.length - customItems.length + 1;
                     allProducts.push({
@@ -308,38 +311,43 @@
                 }
             }
 
-            // 1. Wait for all images to download invisibly
             await preloadImages(allProducts);
-
-            // 2. Render the HTML grid
             renderGrid(allProducts);
 
-            // 3. Fade out the loading screen
             const loader = document.getElementById('loaderScreen');
             if(loader) loader.classList.add('fade-out');
             
-            // 4. Trigger the smooth slide-up animation on the product grid
             const grid = document.getElementById('product-list');
             if(grid) grid.classList.add('grid-enter');
 
-            // 5. Fully remove loader from the DOM after animation finishes
             if(loader) setTimeout(() => { loader.style.display = 'none'; }, 800);
         }
 
+        // --- RENDER GRID WITH ROBUST SANITIZATION ---
         function renderGrid(productsToDisplay) {
+            console.log("Checking product data for render:", productsToDisplay); // Debug logging
             const container = document.getElementById('product-list');
             if (productsToDisplay.length === 0) {
                 container.innerHTML = `<div class="no-matches">--- [ NO MATCHING DATA FOUND ] ---</div>`;
                 return;
             }
-            container.innerHTML = productsToDisplay.map(p => `
+
+            container.innerHTML = productsToDisplay.map(p => {
+                // Secondary failsafe for corrupted image strings
+                let cleanImageUrl = p.image;
+                if (typeof cleanImageUrl === 'string') {
+                    cleanImageUrl = cleanImageUrl.replace(/[\[\]"]/g, ''); 
+                }
+
+                return `
                 <div class="product-card" onclick="openProduct(${p.id})">
-                    <img src="${p.image}" onerror="this.src='https://placehold.co/400?text=Paradigm'">
+                    <img src="${cleanImageUrl}" onerror="this.src='https://placehold.co/400?text=Paradigm'">
                     <h4>${p.title}</h4>
                     <p class="price">₱${p.price.toLocaleString()}</p>
                     <button class="btn" onclick="event.stopPropagation(); addToCart(${p.id})">Add to Cart</button>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // --- NUMERICAL FILTERS ---
@@ -367,15 +375,21 @@
 
         document.getElementById('archiveSearch').addEventListener('input', applyFilters);
 
-        // --- MAGNIFYING GLASS UI INTEGRATION ---
+        // --- MAGNIFYING GLASS UI INTEGRATION (Sanitized) ---
         window.openProduct = (id) => {
             playSound();
             const p = allProducts.find(x => x.id === id);
             
+            // Apply sanitization here too so the zoomed image doesn't break
+            let cleanImageUrl = p.image;
+            if (typeof cleanImageUrl === 'string') {
+                cleanImageUrl = cleanImageUrl.replace(/[\[\]"]/g, ''); 
+            }
+
             document.getElementById('productDetailContent').innerHTML = `
                 <div class="product-detail-flex">
                     <div class="img-zoom-container" onmousemove="zoomImage(event, this)" onmouseleave="resetZoom(this)">
-                        <img src="${p.image}" onerror="this.src='https://placehold.co/800?text=Paradigm'">
+                        <img src="${cleanImageUrl}" onerror="this.src='https://placehold.co/800?text=Paradigm'">
                     </div>
                     <div class="detail-info">
                         <div>
