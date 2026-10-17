@@ -475,7 +475,7 @@
         themeBtn.addEventListener('click', () => { document.documentElement.classList.toggle('light-mode'); localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark'); });
 
         document.addEventListener('contextmenu', event => event.preventDefault());
-        if (getCurrentUser()) window.location.href = 'Home.html';
+        if (getCurrentUser()) window.location.href = 'index.html';
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const phoneRegex = /^\d{10}$/; 
