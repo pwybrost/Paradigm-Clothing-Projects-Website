@@ -14,7 +14,7 @@
     } catch { /* storage unavailable or non-JSON value: nothing to clean */ }
 })();
 
-async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body } = {}) {
     try {
         const res = await fetch(path, {
             method,
@@ -63,3 +63,22 @@ export async function placeOrder(items) {
     const { ok, data } = await api('/api/orders', { method: 'POST', body: { items } });
     return ok ? { success: true, order: data.order } : { success: false, error: data.error };
 }
+
+// ---------- Profile ----------
+export const getProfile = () => api('/api/profile');
+export const updateProfile = (fields) => api('/api/profile', { method: 'PATCH', body: fields });
+export const updateName = (firstName, lastName) => api('/api/profile/name', { method: 'PUT', body: { firstName, lastName } });
+export const uploadAvatar = (dataUrl) => api('/api/profile/avatar', { method: 'PUT', body: { image: dataUrl } });
+export const deleteAvatar = () => api('/api/profile/avatar', { method: 'DELETE' });
+export const changePassword = (currentPassword, newPassword) =>
+    api('/api/profile/password', { method: 'POST', body: { currentPassword, newPassword } });
+export const logoutOtherDevices = () => api('/api/profile/logout-others', { method: 'POST' });
+
+// ---------- Orders ----------
+export const getMyOrders = () => api('/api/orders/mine');
+export const cancelOrder = (id) => api(`/api/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+
+// ---------- Wishlist ----------
+export const getWishlist = () => api('/api/wishlist');
+export const addToWishlist = (productId) => api(`/api/wishlist/${productId}`, { method: 'PUT' });
+export const removeFromWishlist = (productId) => api(`/api/wishlist/${productId}`, { method: 'DELETE' });

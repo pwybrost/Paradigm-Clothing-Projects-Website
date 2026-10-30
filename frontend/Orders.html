@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>My Orders | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/account.css" />
+    <link rel="stylesheet" href="styles/menu.css" />
+</head>
+<body>
+
+    <div id="loaderScreen" class="loader-overlay">
+        <div class="loader-text">Retrieving Order Manifests...</div>
+    </div>
+
+    <a class="header-btn btn-left" href="index.html" id="backBtn">◄ Return to Archive</a>
+    <div class="header-actions" id="headerActions">
+        <button class="header-btn" id="themeToggleBtn">🌓 Theme</button>
+    </div>
+
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3>Order Manifests &amp; Wishlist</h3>
+    </div>
+
+    <div class="wrapper">
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="orders">My Orders <span id="ordersCount"></span></button>
+            <button class="tab-btn" data-tab="wishlist">Wishlist <span id="wishCount"></span></button>
+            <a class="tab-btn" href="Profile.html#history">Full History ►</a>
+        </nav>
+
+        <section class="tab-panel active" id="tab-orders">
+            <div class="group-label">Present Orders</div>
+            <div id="activeOrders"></div>
+            <div class="group-label">Past Orders</div>
+            <div id="pastOrders"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-wishlist">
+            <div class="flex justify-between items-center gap-2.5 mb-5">
+                <span class="panel-note" id="wishSummary"></span>
+                <a class="btn btn-blue btn-auto" href="index.html#cart" id="viewCartBtn">View Cart (<span id="cartCount">0</span>)</a>
+            </div>
+            <main class="product-grid" id="wishGrid"></main>
+        </section>
+    </div>
+
+    <div class="modal-overlay" id="cancelModal">
+        <div class="modal-content">
+            <span class="modal-close" data-close="cancelModal">[ CLOSE ]</span>
+            <h2 class="modal-title is-danger">Abort Order <span id="cancelModalId"></span>?</h2>
+            <p class="modal-text">This order will be cancelled and cannot be restored.<br>Are you certain you wish to proceed?</p>
+            <div class="modal-actions">
+                <button class="btn" data-close="cancelModal">Keep Order</button>
+                <button class="btn btn-danger" id="confirmCancelBtn">Cancel Order</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { getCurrentUser, getMyOrders, cancelOrder, getWishlist, removeFromWishlist } from './auth.js';
+        import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, toast, loadCart, addToStoredCart } from './ui.js';
+
+        const $ = (id) => document.getElementById(id);
+        const ACTIVE = ['pending', 'paid', 'shipped'];
+        const STEPS = ['pending', 'paid', 'shipped', 'completed'];
+        const STEP_LABELS = { pending: 'Received', paid: 'Paid', shipped: 'Shipped', completed: 'Delivered' };
+
+        let orders = [];
+        let wishlist = [];
+        let cancelTarget = null;
+
+        const user = await getCurrentUser();
+        if (!user) { window.location.href = 'Login.html'; }
+        else {
+            mountUserMenu(user, { current: location.hash === '#wishlist' ? 'wishlist' : 'orders' });
+            const [o, w] = await Promise.all([getMyOrders(), getWishlist()]);
+            orders = o.ok ? o.data.orders : [];
+            wishlist = w.ok ? w.data.items : [];
+            renderOrders();
+            renderWishlist();
+            updateCartCount();
+            openTab(location.hash === '#wishlist' ? 'wishlist' : 'orders', false);
+            const loader = $('loaderScreen');
+            loader.classList.add('fade-out');
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
+        }
+
+        initThemeToggle($('themeToggleBtn'));
+        document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea')) e.preventDefault(); });
+        $('backBtn').addEventListener('click', () => playSound('click'));
+        $('viewCartBtn').addEventListener('click', () => playSound('click'));
+
+        function openTab(name, sound = true) {
+            if (sound) playSound('click');
+            document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+            history.replaceState(null, '', name === 'orders' ? location.pathname : `#${name}`);
+        }
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
+        window.addEventListener('hashchange', () => openTab(location.hash.slice(1) || 'orders', false));
+
+        document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => { playSound('click'); $(el.dataset.close).classList.remove('active'); }));
+
+        // ---------- Orders ----------
+        function tracker(status) {
+            if (status === 'cancelled') return '';
+            const reached = STEPS.indexOf(status);
+            return `<div class="tracker">${STEPS.map((s, i) => `<div class="tracker-step${i <= reached ? ' done' : ''}">${STEP_LABELS[s]}</div>`).join('')}</div>`;
+        }
+
+        function orderCard(o, open) {
+            return `
+                <div class="order-card${open ? ' open' : ''}">
+                    <div class="order-head">
+                        <span class="order-id">#${escapeHtml(o.id)}</span>
+                        <span class="order-date">${new Date(o.createdAt).toLocaleDateString()}</span>
+                        <span class="status-badge status-${escapeHtml(o.status)}">${escapeHtml(o.status)}</span>
+                        <span class="order-total">${peso(o.total)}</span>
+                        <span class="order-caret">►</span>
+                    </div>
+                    <div class="order-body">
+                        ${tracker(o.status)}
+                        ${o.items.map(i => `<div class="order-line"><span>${escapeHtml(i.title)}<span class="order-line-qty">×${i.quantity}</span></span><span>${peso(i.lineTotal)}</span></div>`).join('')}
+                        <div class="order-foot">
+                            <span class="panel-note">${o.status === 'pending' ? 'Awaiting payment confirmation' : `Last update ${new Date(o.updatedAt || o.createdAt).toLocaleString()}`}</span>
+                            ${o.status === 'pending' ? `<button class="btn btn-danger btn-auto" data-cancel="${escapeHtml(o.id)}">Cancel Order</button>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderOrders() {
+            const active = orders.filter(o => ACTIVE.includes(o.status));
+            const past = orders.filter(o => !ACTIVE.includes(o.status));
+            $('ordersCount').textContent = active.length ? `(${active.length})` : '';
+            $('activeOrders').innerHTML = active.length
+                ? active.map((o, i) => orderCard(o, i === 0)).join('')
+                : '<div class="no-matches">--- [ NO ACTIVE ORDERS ] ---</div>';
+            $('pastOrders').innerHTML = past.length
+                ? past.map(o => orderCard(o, false)).join('')
+                : '<div class="no-matches">--- [ NO PAST ORDERS ] ---</div>';
+        }
+
+        document.querySelector('#tab-orders').addEventListener('click', (e) => {
+            const cancelBtn = e.target.closest('[data-cancel]');
+            if (cancelBtn) {
+                playSound('click');
+                cancelTarget = cancelBtn.dataset.cancel;
+                $('cancelModalId').textContent = `#${cancelTarget}`;
+                $('cancelModal').classList.add('active');
+                return;
+            }
+            const head = e.target.closest('.order-head');
+            if (head) { playSound('click'); head.parentElement.classList.toggle('open'); }
+        });
+
+        $('confirmCancelBtn').addEventListener('click', async function () {
+            if (this.disabled || !cancelTarget) return;
+            this.disabled = true;
+            const r = await cancelOrder(cancelTarget);
+            this.disabled = false;
+            $('cancelModal').classList.remove('active');
+            if (r.ok) {
+                orders = orders.map(o => String(o.id) === String(cancelTarget) ? r.data.order : o);
+                renderOrders();
+                playSound('purge');
+                toast(`Order #${cancelTarget} cancelled`);
+            } else {
+                playSound('error');
+                toast(r.data.error === 'order_not_cancellable' ? 'Order already processed, cannot cancel' : 'Cancel failed. Retry.', 'error');
+            }
+        });
+
+        // ---------- Wishlist ----------
+        function renderWishlist() {
+            $('wishCount').textContent = wishlist.length ? `(${wishlist.length})` : '';
+            $('wishSummary').textContent = `${wishlist.length} saved item(s) · ${peso(wishlist.reduce((s, i) => s + i.price, 0))}`;
+            if (wishlist.length === 0) {
+                $('wishGrid').innerHTML = '<div class="no-matches col-span-full">--- [ WISHLIST EMPTY · TAP ♡ IN THE ARCHIVE ] ---</div>';
+                return;
+            }
+            $('wishGrid').innerHTML = wishlist.map(p => `
+                <div class="product-card">
+                    <img src="${escapeHtml(p.image || 'https://placehold.co/400?text=Paradigm')}" alt="${escapeHtml(p.title)}" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400?text=Paradigm'">
+                    <h4>${escapeHtml(p.title)}</h4>
+                    <p class="price">₱${p.price.toLocaleString()}</p>
+                    <div class="card-actions">
+                        <button class="btn btn-blue" data-cart="${p.id}">Add to Cart</button>
+                        <button class="btn btn-danger" data-unwish="${p.id}">Remove</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function updateCartCount() {
+            $('cartCount').textContent = loadCart().reduce((s, i) => s + i.quantity, 0);
+        }
+
+        $('wishGrid').addEventListener('click', async (e) => {
+            const add = e.target.closest('[data-cart]');
+            const remove = e.target.closest('[data-unwish]');
+            if (add) {
+                playSound('click');
+                const p = wishlist.find(i => i.id === Number(add.dataset.cart));
+                if (p) { addToStoredCart(p); updateCartCount(); toast(`${p.title} added to cart`); }
+            } else if (remove) {
+                playSound('click');
+                const id = Number(remove.dataset.unwish);
+                const r = await removeFromWishlist(id);
+                if (r.ok) { wishlist = wishlist.filter(i => i.id !== id); renderWishlist(); toast('Removed from wishlist'); }
+                else { playSound('error'); toast('Remove failed. Retry.', 'error'); }
+            }
+        });
+    </script>
+</body>
+</html>

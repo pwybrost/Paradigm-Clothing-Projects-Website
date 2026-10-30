@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
     <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/menu.css" />
     <style>
         /* Page styles live in the components layer so Tailwind utilities can override them. */
         @layer components {
@@ -149,7 +150,9 @@
     </div>
 
     <button class="header-btn btn-left" id="checkoutTrigger">Execute Order (0)</button>
-    <button class="header-btn btn-right" id="themeToggleBtn">🌓 Theme</button>
+    <div class="header-actions" id="headerActions">
+        <button class="header-btn btn-right" id="themeToggleBtn">🌓 Theme</button>
+    </div>
 
     <div class="page-header">
         <h1>Paradigm</h1>
@@ -195,7 +198,8 @@
     </div>
 
     <script type="module">
-        import { getCurrentUser, logout, placeOrder } from './auth.js';
+        import { getCurrentUser, logout, placeOrder, getWishlist, addToWishlist, removeFromWishlist } from './auth.js';
+        import { mountUserMenu, loadCart, saveCart, toast } from './ui.js';
 
         const PLACEHOLDER_CARD = 'https://placehold.co/400?text=Paradigm';
         const PLACEHOLDER_DETAIL = 'https://placehold.co/800?text=Paradigm';
@@ -230,10 +234,26 @@
         } else {
             document.getElementById('dispUser').textContent = user.username;
             document.getElementById('dispEmail').textContent = user.email;
+            mountUserMenu(user, { current: 'archive' });
         }
 
         let allProducts = [];
         let cart = [];
+        let wishlistIds = new Set();
+
+        async function loadWishlistIds() {
+            const { ok, data } = await getWishlist();
+            if (ok) wishlistIds = new Set(data.items.map(i => i.id));
+        }
+
+        // Restore the saved cart, dropping removed items and refreshing names/prices from the API.
+        function restoreCart() {
+            cart = loadCart().flatMap(i => {
+                const p = allProducts.find(x => x.id === i.id);
+                return p ? [{ id: p.id, name: p.title, price: p.price, quantity: Math.min(99, i.quantity) }] : [];
+            });
+            updateCartUI();
+        }
 
         // --- IMAGE PRELOADER LOGIC ---
         function preloadImages(products) {
@@ -257,7 +277,7 @@
         async function init() {
             let loadError = null;
             try {
-                allProducts = await fetchProducts();
+                [allProducts] = await Promise.all([fetchProducts(), loadWishlistIds()]);
                 await preloadImages(allProducts);
             } catch (e) {
                 console.error('Failed to load the archive from the API.', e);
@@ -269,6 +289,7 @@
                 document.getElementById('product-list').innerHTML = `<div class="no-matches">--- [ ARCHIVE OFFLINE · RETRY LATER ] ---</div>`;
             } else {
                 renderGrid(allProducts);
+                restoreCart();
             }
 
             const loader = document.getElementById('loaderScreen');
@@ -278,6 +299,12 @@
             if (grid) grid.classList.add('grid-enter');
 
             if (loader) setTimeout(() => { loader.style.display = 'none'; }, 800);
+
+            // Orders.html "View Cart" links here with #cart.
+            if (location.hash === '#cart' && !loadError) {
+                document.getElementById('checkoutTrigger').click();
+                history.replaceState(null, '', location.pathname);
+            }
         }
 
         // --- RENDER GRID ---
@@ -290,6 +317,7 @@
 
             container.innerHTML = productsToDisplay.map(p => `
                 <div class="product-card" onclick="openProduct(${p.id})">
+                    <button class="wish-btn${wishlistIds.has(p.id) ? ' is-active' : ''}" data-wish="${p.id}" title="Wishlist" onclick="event.stopPropagation(); toggleWishlist(${p.id})">${wishlistIds.has(p.id) ? '♥' : '♡'}</button>
                     <img src="${escapeHtml(p.image || PLACEHOLDER_CARD)}" alt="${escapeHtml(p.title)}" loading="lazy" onerror="this.onerror=null; this.src='${PLACEHOLDER_CARD}'">
                     <h4>${escapeHtml(p.title)}</h4>
                     <p class="price">₱${p.price.toLocaleString()}</p>
@@ -338,10 +366,32 @@
                         <div>
                             <p class="text-[20px] text-accent font-mono mb-5">₱${p.price.toLocaleString()}</p>
                             <button class="btn btn-blue" onclick="addToCart(${p.id})">Confirm Add to Cart</button>
+                            <button class="btn mt-2.5" data-wish-modal="${p.id}" onclick="toggleWishlist(${p.id})">${wishlistIds.has(p.id) ? '♥ In Wishlist' : '♡ Add to Wishlist'}</button>
                         </div>
                     </div>
                 </div>`;
             document.getElementById('productModal').classList.add('active');
+        };
+
+        // --- WISHLIST ---
+        function paintWishlist(id) {
+            const on = wishlistIds.has(id);
+            document.querySelectorAll(`[data-wish="${id}"]`).forEach(b => { b.classList.toggle('is-active', on); b.textContent = on ? '♥' : '♡'; });
+            document.querySelectorAll(`[data-wish-modal="${id}"]`).forEach(b => { b.textContent = on ? '♥ In Wishlist' : '♡ Add to Wishlist'; });
+        }
+        window.toggleWishlist = async (id) => {
+            playSound();
+            const adding = !wishlistIds.has(id);
+            adding ? wishlistIds.add(id) : wishlistIds.delete(id);
+            paintWishlist(id);
+            const { ok } = adding ? await addToWishlist(id) : await removeFromWishlist(id);
+            if (!ok) {
+                adding ? wishlistIds.delete(id) : wishlistIds.add(id);
+                paintWishlist(id);
+                toast('Wishlist sync failed. Retry.', 'error');
+                return;
+            }
+            toast(adding ? 'Saved to wishlist' : 'Removed from wishlist');
         };
 
         // --- MAGNIFYING GLASS LOGIC ---
@@ -395,6 +445,7 @@
             const list = document.getElementById('cart-items-list');
             const total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
             const count = cart.reduce((sum, i) => sum + i.quantity, 0);
+            saveCart(cart);
 
             document.getElementById('checkoutTrigger').textContent = `Execute Order (${count})`;
             document.getElementById('total-price').textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2 });

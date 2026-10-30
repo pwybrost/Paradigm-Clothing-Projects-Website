@@ -94,3 +94,27 @@ CREATE TABLE IF NOT EXISTS order_items (
     line_total NUMERIC(12, 2) NOT NULL CHECK (line_total >= 0)
 );
 CREATE INDEX IF NOT EXISTS order_items_order_idx ON order_items (order_id);
+
+-- ---------- Batch 2: profiles, avatars, wishlist ----------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name        TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name_changed_at  TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio              TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS description      TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS size_preference  TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shipping_address JSONB;
+
+CREATE TABLE IF NOT EXISTS user_avatars (
+    user_id    UUID        PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    mime_type  TEXT        NOT NULL,
+    data       BYTEA       NOT NULL,
+    byte_size  INTEGER     NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS wishlist (
+    user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    product_id INTEGER     NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, product_id)
+);

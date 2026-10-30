@@ -2,15 +2,10 @@ import { Router } from 'express';
 import { query } from '../db.js';
 import { burnPasswordCheck, hashPassword, verifyPassword } from '../lib/password.js';
 import { createSession, destroySession, loadUser, toPublicUser } from '../lib/session.js';
+import { EMAIL_RE, PASSWORD_RE, PHONE_RE, str } from '../lib/validation.js';
+
 
 const router = Router();
-
-// Same rules as the Signup page.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+[0-9 (),]{1,25} \d{10}$/; // "<country code> <10 digits>", e.g. "+63 9123456789"
-const PASSWORD_RE = /^(?=(?:.*?\d){2})(?=(?:.*?[!@#$%^&*(),.?":{}|<>]){2}).{8,}$/;
-
-const str = (value) => (typeof value === 'string' ? value.trim() : '');
 
 router.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');

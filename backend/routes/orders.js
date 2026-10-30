@@ -21,6 +21,7 @@ function toOrderDto(order, items) {
         itemCount: order.item_count,
         total: order.total,
         createdAt: order.created_at,
+        updatedAt: order.updated_at,
         items: items.map((i) => ({
             productId: i.product_id,
             title: i.title,
@@ -99,6 +100,24 @@ router.get('/mine', async (req, res) => {
     );
     const byOrder = Map.groupBy(items, (i) => String(i.order_id));
     res.json({ orders: orders.map((o) => toOrderDto(o, byOrder.get(String(o.id)) ?? [])) });
+});
+
+// Customers can cancel their own order while it's still pending (not yet paid or shipped).
+router.post('/:id/cancel', async (req, res) => {
+    if (!/^\d{1,18}$/.test(req.params.id)) return res.status(400).json({ error: 'invalid_order' });
+    const { rows } = await query(
+        `UPDATE orders SET status = 'cancelled', updated_at = now()
+         WHERE id = $1 AND user_id = $2 AND status = 'pending'
+         RETURNING *`,
+        [req.params.id, req.user.id],
+    );
+    if (rows.length === 0) {
+        const exists = await query('SELECT status FROM orders WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+        if (exists.rowCount === 0) return res.status(404).json({ error: 'order_not_found' });
+        return res.status(409).json({ error: 'order_not_cancellable', status: exists.rows[0].status });
+    }
+    const { rows: items } = await query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [rows[0].id]);
+    res.json({ order: toOrderDto(rows[0], items) });
 });
 
 export default router;

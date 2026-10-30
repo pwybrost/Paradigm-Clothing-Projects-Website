@@ -24,14 +24,16 @@ inclusion: always
 - Real checkout: orders + order items saved in Neon with server-side prices.
 - `npm run admin:promote -- you@email.com` makes the owner account an admin.
 
-### Batch 2: user profile (next)
-- Profile icon next to the Theme button on the dashboard (right side) opening a profile page.
-- Profile: profile picture upload, First name + Last name (editable once every 30 days), bio/description,
-  email shown (read-only), phone number change only after email confirmation (needs an email provider, e.g. Resend).
-- History/transactions tab: past and current purchases grouped by order, search bar, sort/organize button.
-- "My Orders" page with orders and a wishlist (heart button on product cards).
-- Extra shop profile ideas: saved shipping addresses, size preferences, change password, order status badges,
-  recently viewed items.
+### Batch 2: user profile (done)
+- Profile button + dropdown next to Theme (archive, profile and orders pages): `frontend/ui.js` `mountUserMenu`.
+- `Profile.html`: picture upload (cropped to 320x320 in the browser, stored in `user_avatars`),
+  First/Last name (once every 30 days, enforced in SQL), bio (160), description (1000), email (read-only),
+  phone (read-only; "Change" shows an email-confirmation notice), size preference, shipping address,
+  stats, History & Transactions tab (grouped by month, search, sort button, status filters),
+  Security tab (change passcode, sign out other devices).
+- `Orders.html`: present/past orders with status tracker and cancel (pending only, confirm dialog), wishlist tab.
+- Wishlist hearts on archive cards and in the product modal; cart saved in localStorage (`paradigm_cart`).
+- Still open from Batch 2: phone change by email confirmation (waiting for an email provider such as Resend).
 
 ### Batch 3: owner/admin tools
 - Edit button on product cards (admin only): edit picture, name, description, price.
@@ -42,5 +44,6 @@ inclusion: always
 
 ### Batch 4: hardening and payments
 - Real payment gateway (PayMongo or Stripe) instead of "pending / pay on delivery" orders.
-- Password reset by email, login rate limiting, email verification at signup.
+- Email provider (Resend): phone-change confirmation, password reset, email verification at signup.
+- Login rate limiting.
 - Stock/inventory and sizes per product.
