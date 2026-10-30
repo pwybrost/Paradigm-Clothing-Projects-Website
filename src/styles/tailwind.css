@@ -1,0 +1,22 @@
+/*
+ * Tailwind v4 entry. Build with `npm run build` -> public/css/tailwind.css
+ *
+ * Preflight (Tailwind's reset) is intentionally NOT imported: the pages ship
+ * their own reset, and preflight would restyle buttons, headings and images.
+ * Each page wraps its own CSS in `@layer components`, so Tailwind utilities
+ * win over it the same way the old inline style="" attributes did.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "../../public";
+
+@theme {
+    /* Match the original design exactly */
+    --font-mono: monospace;
+    --color-accent: #3b82f6;
+    --color-danger: #ff4d4d;
+    --color-alert: #ff4444;
+}

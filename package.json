@@ -1,0 +1,29 @@
+{
+  "name": "paradigm-clothing-projects",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Paradigm Clothing Projects storefront with an Express + Neon PostgreSQL product API.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "build": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --minify",
+    "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --watch",
+    "dev": "npm run build && node --watch server/index.js",
+    "start": "node server/index.js",
+    "db:migrate": "node server/scripts/migrate.js",
+    "db:seed": "node server/scripts/seed.js",
+    "db:setup": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "sharp": "^0.34.0",
+    "tailwindcss": "^4.1.0"
+  }
+}
