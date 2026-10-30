@@ -35,12 +35,15 @@ inclusion: always
 - Wishlist hearts on archive cards and in the product modal; cart saved in localStorage (`paradigm_cart`).
 - Still open from Batch 2: phone change by email confirmation (waiting for an email provider such as Resend).
 
-### Batch 3: owner/admin tools
-- Edit button on product cards (admin only): edit picture, name, description, price.
-- Delete/omit with a confirmation dialog; deleted rows copied to `deleted_products` (backend-only record).
-- Add new products.
-- Profit and loss tracker (button on dashboard, full-screen panel): revenue, cost (needs a product cost field), profit by period.
-- Orders menu: list of users and their orders; click to expand details; update order status.
+### Batch 3: owner/admin tools (done)
+- `frontend/admin.js` + `styles/admin.css`, only imported by index.html for role `admin`; all `/api/admin/*` routes require admin.
+- Owner console bar under the search: New Item, P&L Tracker, Orders Menu, Deleted Records.
+- Cards show "✎ EDIT" (owner only) and a "Register New Item" card. Editor: photo (resized in browser to 1600px WebP),
+  name, description, price, unit cost, live margin.
+- Delete: confirmation dialog + type DELETE; full copy (incl. photo) saved to `deleted_products`; ids never reused; seed never restores.
+- P&L: realized sales (paid/shipped/completed), cost of goods (unit_cost snapshot per order line), expenses table,
+  net profit, margin, pending revenue, timeline chart, top items, expense log. Ranges 7d/30d/90d/12m/all.
+- Orders menu: grouped by customer, search, status filters, expand customer -> orders -> items, update status.
 
 ### Batch 4: hardening and payments
 - Real payment gateway (PayMongo or Stripe) instead of "pending / pay on delivery" orders.

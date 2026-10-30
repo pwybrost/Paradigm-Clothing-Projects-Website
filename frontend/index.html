@@ -240,6 +240,7 @@
         let allProducts = [];
         let cart = [];
         let wishlistIds = new Set();
+        const isAdmin = user?.role === 'admin';
 
         async function loadWishlistIds() {
             const { ok, data } = await getWishlist();
@@ -300,6 +301,15 @@
 
             if (loader) setTimeout(() => { loader.style.display = 'none'; }, 800);
 
+            // Owner console: only downloaded for admin accounts. The server checks the role on every admin request.
+            if (isAdmin && !loadError) {
+                const admin = await import('./admin.js');
+                await admin.mount({
+                    getProducts: () => allProducts,
+                    setProducts: (list) => { allProducts = list; applyFilters(); },
+                });
+            }
+
             // Orders.html "View Cart" links here with #cart.
             if (location.hash === '#cart' && !loadError) {
                 document.getElementById('checkoutTrigger').click();
@@ -310,13 +320,17 @@
         // --- RENDER GRID ---
         function renderGrid(productsToDisplay) {
             const container = document.getElementById('product-list');
-            if (productsToDisplay.length === 0) {
+            if (productsToDisplay.length === 0 && !isAdmin) {
                 container.innerHTML = `<div class="no-matches">--- [ NO MATCHING DATA FOUND ] ---</div>`;
                 return;
             }
 
-            container.innerHTML = productsToDisplay.map(p => `
+            const addCard = isAdmin ? `
+                <div class="product-card admin-add-card" onclick="adminCreate()"><span>＋</span><span>Register New Item</span></div>` : '';
+
+            container.innerHTML = addCard + productsToDisplay.map(p => `
                 <div class="product-card" onclick="openProduct(${p.id})">
+                    ${isAdmin ? `<button class="admin-edit-btn" title="Edit item" onclick="event.stopPropagation(); adminEdit(${p.id})">✎ EDIT</button>` : ''}
                     <button class="wish-btn${wishlistIds.has(p.id) ? ' is-active' : ''}" data-wish="${p.id}" title="Wishlist" onclick="event.stopPropagation(); toggleWishlist(${p.id})">${wishlistIds.has(p.id) ? '♥' : '♡'}</button>
                     <img src="${escapeHtml(p.image || PLACEHOLDER_CARD)}" alt="${escapeHtml(p.title)}" loading="lazy" onerror="this.onerror=null; this.src='${PLACEHOLDER_CARD}'">
                     <h4>${escapeHtml(p.title)}</h4>

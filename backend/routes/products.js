@@ -42,7 +42,7 @@ function parseId(raw) {
 router.get('/', async (_req, res) => {
     const { rows } = await query(LIST_SQL);
     // Short CDN cache so admin edits (next batch) show up within a minute.
-    res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+    res.set('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=30');
     res.json(rows.map(toDto));
 });
 

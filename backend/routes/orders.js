@@ -52,14 +52,14 @@ router.post('/', async (req, res) => {
 
     const ids = [...quantities.keys()];
     const { rows: products } = await query(
-        'SELECT id, title, price FROM products WHERE is_active AND id = ANY($1::int[])',
+        'SELECT id, title, price, cost FROM products WHERE is_active AND id = ANY($1::int[])',
         [ids],
     );
     if (products.length !== ids.length) return res.status(409).json({ error: 'product_unavailable' });
 
     const lines = products.map((p) => {
         const quantity = quantities.get(p.id);
-        return { productId: p.id, title: p.title, unitPrice: p.price, quantity, lineTotal: round2(p.price * quantity) };
+        return { productId: p.id, title: p.title, unitPrice: p.price, unitCost: p.cost, quantity, lineTotal: round2(p.price * quantity) };
     });
     const total = round2(lines.reduce((sum, l) => sum + l.lineTotal, 0));
     const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -74,9 +74,9 @@ router.post('/', async (req, res) => {
         const items = [];
         for (const l of lines) {
             const { rows: itemRows } = await client.query(
-                `INSERT INTO order_items (order_id, product_id, title, unit_price, quantity, line_total)
-                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                [created.id, l.productId, l.title, l.unitPrice, l.quantity, l.lineTotal],
+                `INSERT INTO order_items (order_id, product_id, title, unit_price, unit_cost, quantity, line_total)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [created.id, l.productId, l.title, l.unitPrice, l.unitCost, l.quantity, l.lineTotal],
             );
             items.push(itemRows[0]);
         }

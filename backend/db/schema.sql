@@ -118,3 +118,23 @@ CREATE TABLE IF NOT EXISTS wishlist (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (user_id, product_id)
 );
+
+-- ---------- Batch 3: owner tools ----------
+-- Unit cost per product (what the owner pays to make it), used by the profit & loss tracker.
+ALTER TABLE products    ADD COLUMN IF NOT EXISTS cost      NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (cost >= 0);
+-- Cost copied at purchase time, like unit_price, so later cost edits don't rewrite past profit.
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL DEFAULT '';
+
+-- Other business costs (shipping, packaging, ads...) for the P&L tracker.
+CREATE TABLE IF NOT EXISTS expenses (
+    id         BIGSERIAL   PRIMARY KEY,
+    label      TEXT        NOT NULL,
+    category   TEXT        NOT NULL DEFAULT 'other',
+    amount     NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+    spent_on   DATE        NOT NULL DEFAULT CURRENT_DATE,
+    created_by UUID        REFERENCES users (id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS expenses_spent_idx ON expenses (spent_on DESC);
+CREATE INDEX IF NOT EXISTS orders_status_created_idx ON orders (status, created_at DESC);
