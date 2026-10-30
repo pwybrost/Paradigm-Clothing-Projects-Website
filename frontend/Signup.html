@@ -479,7 +479,7 @@
         themeBtn.addEventListener('click', () => { document.documentElement.classList.toggle('light-mode'); localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark'); });
 
         document.addEventListener('contextmenu', event => event.preventDefault());
-        if (getCurrentUser()) window.location.href = 'index.html';
+        getCurrentUser().then(u => { if (u) window.location.href = 'index.html'; });
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const phoneRegex = /^\d{10}$/; 
@@ -499,7 +499,7 @@
 
         document.getElementById('togglePass').addEventListener('click', function() { const input = document.getElementById('signupPassword'); input.type = input.type === "password" ? "text" : "password"; this.style.opacity = input.type === "text" ? "1" : "0.5"; });
 
-        form.addEventListener('submit', function (e) {
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
             let hasEmpty = false;
 
@@ -524,16 +524,27 @@
                 const fullPhone = `${code} ${phoneNum}`;
                 const pass = document.getElementById('signupPassword').value;
 
-                const isSuccess = signup(user, email, fullPhone, pass);
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn.disabled) return;
+                submitBtn.disabled = true;
+                const result = await signup(user, email, fullPhone, pass);
+                submitBtn.disabled = false;
                 
-                if (isSuccess) {
+                if (result.success) {
                     playSound('success'); 
                     document.getElementById('successModal').classList.add('active');
                     setTimeout(() => { window.location.href = 'Login.html'; }, 3500);
                 } else {
                     playSound('error'); 
-                    const err = document.getElementById('signupEmailError');
-                    err.textContent = "Email already registered.";
+                    const fieldFor = { invalid_username: 'signupUsername', invalid_phone: 'signupPhone', weak_password: 'signupPassword' };
+                    const err = document.getElementById((fieldFor[result.error] || 'signupEmail') + 'Error');
+                    const messages = {
+                        email_taken: "Email already registered.",
+                        invalid_email: "Invalid Email Format.",
+                        invalid_username: "Name must be 1-50 characters.",
+                        network_error: "Connection Lost. Please Retry.",
+                    };
+                    err.textContent = messages[result.error] || err.dataset.orig || "Registration Failed. Please Retry.";
                     err.classList.add('active');
                 }
             } else {

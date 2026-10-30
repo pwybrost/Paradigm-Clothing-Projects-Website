@@ -1,20 +1,22 @@
 {
   "name": "paradigm-clothing-projects",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Paradigm Clothing Projects storefront with an Express + Neon PostgreSQL product API.",
+  "description": "Paradigm Clothing Projects storefront: static frontend + Express API on Neon PostgreSQL, deployed on Vercel.",
   "type": "module",
   "engines": {
-    "node": ">=20.12"
+    "node": ">=22"
   },
   "scripts": {
-    "build": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --minify",
-    "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --watch",
-    "dev": "npm run build && node --watch server/index.js",
-    "start": "node server/index.js",
-    "db:migrate": "node server/scripts/migrate.js",
-    "db:seed": "node server/scripts/seed.js",
-    "db:setup": "npm run db:migrate && npm run db:seed"
+    "build": "tailwindcss -i ./frontend/styles/tailwind.css -o ./frontend/css/tailwind.css --minify",
+    "dev:css": "tailwindcss -i ./frontend/styles/tailwind.css -o ./frontend/css/tailwind.css --watch",
+    "dev": "npm run build && node --watch backend/server.js",
+    "start": "node backend/server.js",
+    "db:migrate": "node backend/scripts/migrate.js",
+    "db:seed": "node backend/scripts/seed.js",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "admin:promote": "node backend/scripts/promote-admin.js",
+    "vercel-build": "npm run build && node backend/scripts/migrate.js --if-configured && node backend/scripts/seed.js --if-configured"
   },
   "dependencies": {
     "express": "^5.1.0",

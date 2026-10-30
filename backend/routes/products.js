@@ -41,7 +41,8 @@ function parseId(raw) {
 
 router.get('/', async (_req, res) => {
     const { rows } = await query(LIST_SQL);
-    res.set('Cache-Control', 'public, max-age=60');
+    // Short CDN cache so admin edits (next batch) show up within a minute.
+    res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
     res.json(rows.map(toDto));
 });
 
@@ -68,7 +69,7 @@ router.get('/:id/image', async (req, res) => {
     res.set({
         'Content-Type': mimeType,
         ETag: `"${sha256}"`,
-        'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300',
+        'Cache-Control': versioned ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=300',
     });
     // res.send() answers 304 automatically when If-None-Match matches the ETag.
     res.send(data);

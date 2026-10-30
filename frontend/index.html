@@ -195,7 +195,7 @@
     </div>
 
     <script type="module">
-        import { getCurrentUser, logout } from './auth.js';
+        import { getCurrentUser, logout, placeOrder } from './auth.js';
 
         const PLACEHOLDER_CARD = 'https://placehold.co/400?text=Paradigm';
         const PLACEHOLDER_DETAIL = 'https://placehold.co/800?text=Paradigm';
@@ -223,7 +223,8 @@
             { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
         ));
 
-        const user = getCurrentUser();
+        // The loader screen stays up while the session is checked with the server.
+        const user = await getCurrentUser();
         if (!user) {
             window.location.href = 'Login.html';
         } else {
@@ -412,38 +413,36 @@
             `).join('') || '<p class="text-center text-[#444] p-5">CART EMPTY</p>';
         }
 
-        window.processCheckout = () => {
-            if (cart.length === 0 || !user) return;
+        // Sends the cart to the server, which prices it from the database and saves the order in Neon.
+        const CHECKOUT_ERRORS = {
+            product_unavailable: 'ERROR: AN ITEM IS NO LONGER AVAILABLE. REFRESH AND RETRY.',
+            not_authenticated: 'ERROR: SESSION EXPIRED. PLEASE LOG IN AGAIN.',
+        };
+        window.processCheckout = async () => {
             const btn = document.getElementById('confirmCheckoutBtn');
+            if (cart.length === 0 || !user || btn.disabled) return;
             const status = document.getElementById('status-msg');
             btn.disabled = true;
             status.innerHTML = "COMMENCING ENCRYPTED UPLOAD...";
 
-            setTimeout(() => {
-                const isSuccess = Math.random() > 0.2;
+            // Keep the original upload animation timing (at least 2s).
+            const [result] = await Promise.all([
+                placeOrder(cart.map(i => ({ id: i.id, quantity: i.quantity }))),
+                new Promise(resolve => setTimeout(resolve, 2000)),
+            ]);
 
-                if (isSuccess) {
-                    const totalCost = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-                    const payload = {
-                        userInfo: { email: user.email, username: user.username },
-                        cartItems: cart,
-                        totalPrice: totalCost,
-                        timestamp: new Date().toISOString()
-                    };
+            if (result.success) {
+                status.innerHTML = `<span class='text-accent'>ORDER #${escapeHtml(result.order.id)} DEPLOYED SUCCESSFULLY. PAYLOAD SAVED.</span>`;
+                cart = [];
+                updateCartUI();
+                setTimeout(() => closeModal('checkoutModal'), 2500);
+            } else {
+                const message = CHECKOUT_ERRORS[result.error] || 'ERROR: TRANSMISSION FAILED. PLEASE RETRY.';
+                status.innerHTML = `<span class='text-danger'>${message}</span>`;
+                if (result.error === 'not_authenticated') setTimeout(() => { window.location.href = 'Login.html'; }, 2000);
+            }
 
-                    localStorage.setItem('paradigm_last_order', JSON.stringify(payload));
-
-                    status.innerHTML = "<span class='text-accent'>ORDER DEPLOYED SUCCESSFULLY. PAYLOAD SAVED.</span>";
-                    cart = [];
-                    updateCartUI();
-
-                    setTimeout(() => closeModal('checkoutModal'), 2500);
-                } else {
-                    status.innerHTML = "<span class='text-danger'>ERROR: TRANSMISSION FAILED. PLEASE RETRY.</span>";
-                }
-
-                btn.disabled = false;
-            }, 2000);
+            btn.disabled = false;
         };
 
         window.closeModal = (id) => document.getElementById(id).classList.remove('active');

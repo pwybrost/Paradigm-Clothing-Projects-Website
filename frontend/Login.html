@@ -157,7 +157,7 @@
                         <input type="password" id="signinPassword" required />
                         <span class="toggle-pass" id="togglePassLog">👁️</span>
                     </div>
-                    <div class="error-dialog" id="signinPasswordError" data-orig="Access Denied. Invalid Passcode.">Access Denied. Invalid Passcode.</div>
+                    <div class="error-dialog" id="signinPasswordError" data-orig="Access Denied. Invalid Email or Passcode.">Access Denied. Invalid Email or Passcode.</div>
                 </div>
 
                 <button type="submit">Authenticate Profile</button>
@@ -246,7 +246,7 @@
         document.getElementById('cancelResetBtn').addEventListener('click', () => playSound('click'));
 
         document.addEventListener('contextmenu', event => event.preventDefault());
-        if (getCurrentUser()) window.location.href = 'index.html';
+        getCurrentUser().then(u => { if (u) window.location.href = 'index.html'; });
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         
         const hideError = (errorId) => { const err = document.getElementById(errorId); err.classList.remove('active'); if(err.dataset.orig) err.textContent = err.dataset.orig; }
@@ -254,7 +254,10 @@
         const form = document.getElementById('signinForm');
         form.querySelectorAll('input').forEach(input => { input.addEventListener('input', () => hideError(input.id + 'Error')); });
 
-        form.addEventListener('submit', function (e) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const showError = (err, text) => { err.textContent = text; err.classList.remove('active'); void err.offsetWidth; err.classList.add('active'); };
+
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
             let hasEmpty = false;
 
@@ -272,20 +275,22 @@
             const emailErr = document.getElementById('signinEmailError');
             const passErr = document.getElementById('signinPasswordError');
 
-            const result = login(email, pass);
+            if (submitBtn.disabled) return;
+            submitBtn.disabled = true;
+            const result = await login(email, pass);
+            submitBtn.disabled = false;
 
             if (result.success) {
                 playSound('success'); 
                 document.getElementById('loginSuccessModal').classList.add('active');
                 setTimeout(() => { window.location.href = 'index.html'; }, 3000);
-            } else if (result.error === 'not_found') {
+            } else if (result.error === 'network_error') {
+                playSound('error');
+                showError(passErr, "Connection Lost. Please Retry.");
+            } else {
+                // One message for wrong email or wrong passcode, so the form doesn't reveal which emails exist.
                 playSound('error'); 
-                emailErr.textContent = emailErr.dataset.orig;
-                emailErr.classList.add('active');
-            } else if (result.error === 'wrong_password') {
-                playSound('error'); 
-                passErr.textContent = passErr.dataset.orig;
-                passErr.classList.add('active');
+                showError(passErr, passErr.dataset.orig);
             }
         });
 
@@ -301,19 +306,34 @@
                 err.classList.add('active');
                 return;
             }
+            if (!document.getElementById('signinPassword').value) {
+                playSound('error');
+                showError(document.getElementById('signinPasswordError'), "Enter your passcode above to reset profile.");
+                return;
+            }
             confirmModal.classList.add('active');
         });
 
         document.getElementById('cancelResetBtn').addEventListener('click', function() { confirmModal.classList.remove('active'); });
 
-        document.getElementById('confirmResetBtn').addEventListener('click', function() {
-            playSound('purge'); 
+        document.getElementById('confirmResetBtn').addEventListener('click', async function() {
+            if (this.disabled) return;
+            this.disabled = true;
             const email = document.getElementById('signinEmail').value;
-            resetAccount(email);
-            
+            const pass = document.getElementById('signinPassword').value;
+            const result = await resetAccount(email, pass);
+            this.disabled = false;
             confirmModal.classList.remove('active');
+
+            if (!result.success) {
+                playSound('error');
+                const passErr = document.getElementById('signinPasswordError');
+                showError(passErr, result.error === 'network_error' ? "Connection Lost. Please Retry." : passErr.dataset.orig);
+                return;
+            }
+
+            playSound('purge'); 
             successModal.classList.add('active'); 
-            
             setTimeout(() => { window.location.href = 'Signup.html'; }, 3500);
         });
     </script>

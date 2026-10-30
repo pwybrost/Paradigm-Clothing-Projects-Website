@@ -1,0 +1,90 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { config } from '../config.js';
+import { query } from '../db.js';
+
+export const SESSION_COOKIE = 'prdgm_session';
+
+const hashToken = (token) => createHash('sha256').update(token).digest('hex');
+
+function readCookie(req, name) {
+    const header = req.headers.cookie;
+    if (!header) return null;
+    for (const part of header.split(';')) {
+        const index = part.indexOf('=');
+        if (index === -1) continue;
+        if (part.slice(0, index).trim() === name) {
+            try {
+                return decodeURIComponent(part.slice(index + 1).trim());
+            } catch {
+                return null;
+            }
+        }
+    }
+    return null;
+}
+
+function cookieOptions() {
+    return {
+        httpOnly: true,
+        secure: config.isProduction,
+        sameSite: 'lax',
+        path: '/',
+    };
+}
+
+// Public shape of a user. Never includes the password hash.
+export function toPublicUser(row) {
+    return {
+        id: row.id,
+        username: row.username,
+        email: row.email,
+        phone: row.phone,
+        role: row.role,
+        createdAt: row.created_at,
+    };
+}
+
+export async function createSession(req, res, userId) {
+    const token = randomBytes(32).toString('base64url');
+    const maxAgeMs = config.sessionDays * 24 * 60 * 60 * 1000;
+    await query(
+        `INSERT INTO sessions (token_hash, user_id, expires_at, user_agent)
+         VALUES ($1, $2, now() + make_interval(days => $3::int), $4)`,
+        [hashToken(token), userId, config.sessionDays, String(req.get('user-agent') ?? '').slice(0, 300)],
+    );
+    // Opportunistic cleanup of expired sessions.
+    query('DELETE FROM sessions WHERE expires_at < now()').catch(() => {});
+    res.cookie(SESSION_COOKIE, token, { ...cookieOptions(), maxAge: maxAgeMs });
+}
+
+export async function destroySession(req, res) {
+    const token = readCookie(req, SESSION_COOKIE);
+    if (token) await query('DELETE FROM sessions WHERE token_hash = $1', [hashToken(token)]);
+    res.clearCookie(SESSION_COOKIE, cookieOptions());
+}
+
+// Middleware: sets req.user when a valid session cookie is present.
+export async function loadUser(req, _res, next) {
+    req.user = null;
+    const token = readCookie(req, SESSION_COOKIE);
+    if (token) {
+        const { rows } = await query(
+            `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
+             WHERE s.token_hash = $1 AND s.expires_at > now()`,
+            [hashToken(token)],
+        );
+        if (rows[0]) req.user = rows[0];
+    }
+    next();
+}
+
+export function requireAuth(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'not_authenticated' });
+    next();
+}
+
+export function requireAdmin(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'not_authenticated' });
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'forbidden' });
+    next();
+}
