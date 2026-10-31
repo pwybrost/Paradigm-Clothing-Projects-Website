@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
-import { products } from '../data/products.js';
+import { DEFAULT_SIZES, DEFAULT_STOCK, ORIGINAL_RELEASE, products } from '../data/products.js';
 import { closePool, withTransaction } from '../db.js';
 
 const IMAGE_DIR = path.join(config.backendDir, 'data', 'images');
@@ -60,10 +60,10 @@ async function seed() {
             }
 
             await client.query(
-                `INSERT INTO products (id, slug, title, description, price, sort_order)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                `INSERT INTO products (id, slug, title, description, price, sort_order, category, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                  ON CONFLICT (id) DO NOTHING`,
-                [product.id, product.slug, product.title, product.desc, product.price, index],
+                [product.id, product.slug, product.title, product.desc, product.price, index, product.category, ORIGINAL_RELEASE],
             );
 
             if (hasImage.has(product.id)) continue;
@@ -80,6 +80,14 @@ async function seed() {
             const kb = (n) => `${Math.round(n / 1024)} KB`;
             console.log(`[seed] ${product.id} ${product.title.padEnd(26)} ${kb(image.originalSize)} -> ${kb(image.data.length)} (${image.mimeType})`);
         }
+        // Every product needs at least one size to be orderable. Only fills products that have none.
+        const variants = await client.query(
+            `INSERT INTO product_variants (product_id, color, size, stock)
+             SELECT p.id, '', s.size, $2::int FROM products p CROSS JOIN unnest($1::text[]) AS s(size)
+             WHERE NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id)`,
+            [DEFAULT_SIZES, DEFAULT_STOCK],
+        );
+        if (variants.rowCount) console.log(`[seed] added default sizes (${variants.rowCount} size rows)`);
         console.log(`[seed] done: ${added} new image(s) stored, ${products.length - added} already present or skipped`);
     });
 }

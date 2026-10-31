@@ -58,11 +58,16 @@ export async function logout() {
     window.location.href = 'Login.html';
 }
 
-// items: [{ id, quantity }]. Prices are calculated by the server.
-export async function placeOrder(items) {
-    const { ok, data } = await api('/api/orders', { method: 'POST', body: { items } });
-    return ok ? { success: true, order: data.order } : { success: false, error: data.error };
+// payload: { items: [{ id, size, color, quantity }], shipping, notes, discountCode, saveAddress }.
+// Prices, stock, discounts and shipping are calculated by the server.
+export async function placeOrder(payload) {
+    const { ok, data } = await api('/api/orders', { method: 'POST', body: payload });
+    return ok ? { success: true, order: data.order } : { success: false, error: data.error, data };
 }
+
+export const quoteCart = (items, discountCode) => api('/api/orders/quote', { method: 'POST', body: { items, discountCode } });
+export const getOrder = (id) => api(`/api/orders/${encodeURIComponent(id)}`);
+export const requestReturn = (id, body) => api(`/api/orders/${encodeURIComponent(id)}/returns`, { method: 'POST', body });
 
 // ---------- Profile ----------
 export const getProfile = () => api('/api/profile');

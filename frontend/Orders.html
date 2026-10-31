@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/tailwind.css" />
     <link rel="stylesheet" href="styles/account.css" />
     <link rel="stylesheet" href="styles/menu.css" />
+    <script defer src="analytics.js"></script>
 </head>
 <body>
 
@@ -60,8 +61,41 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="returnModal">
+        <div class="modal-content">
+            <span class="modal-close" data-close="returnModal">[ CLOSE ]</span>
+            <h2 class="modal-title">Return / Exchange · <span id="returnModalId"></span></h2>
+            <p class="modal-text">Requests are accepted within 30 days of shipping. We'll review it and reply on this order.</p>
+            <div class="field">
+                <label>Request Type</label>
+                <div class="filter-chips mb-0" id="returnKind">
+                    <button class="size-chip active" data-kind="exchange">Exchange (e.g. other size)</button>
+                    <button class="size-chip" data-kind="return">Return &amp; Refund</button>
+                </div>
+            </div>
+            <div class="field">
+                <label for="returnReason">Reason</label>
+                <select class="search-input" id="returnReason">
+                    <option>Wrong size / fit</option>
+                    <option>Damaged or defective</option>
+                    <option>Wrong item received</option>
+                    <option>Not as described</option>
+                    <option>Other</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="returnDetails">Details (which item, preferred size...)</label>
+                <textarea class="search-input" id="returnDetails" maxlength="1000"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" data-close="returnModal">Cancel</button>
+                <button class="btn btn-blue" id="confirmReturnBtn">Submit Request</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
-        import { getCurrentUser, getMyOrders, cancelOrder, getWishlist, removeFromWishlist } from './auth.js';
+        import { getCurrentUser, getMyOrders, cancelOrder, getWishlist, removeFromWishlist, requestReturn } from './auth.js';
         import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, toast, loadCart, addToStoredCart } from './ui.js';
 
         const $ = (id) => document.getElementById(id);
@@ -72,9 +106,12 @@
         let orders = [];
         let wishlist = [];
         let cancelTarget = null;
+        let returnTarget = null;
+        let returnKind = 'exchange';
+        const addressText = (a) => (a ? [a.name, a.line1, a.line2, a.city, a.province, a.postalCode, a.country].filter(Boolean).join(', ') : '');
 
         const user = await getCurrentUser();
-        if (!user) { window.location.href = 'Login.html'; }
+        if (!user) { window.location.href = `Login.html?next=${encodeURIComponent('Orders.html' + location.hash)}`; }
         else {
             mountUserMenu(user, { current: location.hash === '#wishlist' ? 'wishlist' : 'orders' });
             const [o, w] = await Promise.all([getMyOrders(), getWishlist()]);
@@ -124,10 +161,19 @@
                     </div>
                     <div class="order-body">
                         ${tracker(o.status)}
-                        ${o.items.map(i => `<div class="order-line"><span>${escapeHtml(i.title)}<span class="order-line-qty">×${i.quantity}</span></span><span>${peso(i.lineTotal)}</span></div>`).join('')}
+                        ${o.items.map(i => `<div class="order-line"><span>${escapeHtml(i.title)}<span class="order-line-qty">${escapeHtml(i.size)}${i.color ? ` · ${escapeHtml(i.color)}` : ''} ×${i.quantity}${i.isPreorder ? ' · PRE-ORDER' : ''}</span></span><span>${peso(i.lineTotal)}</span></div>`).join('')}
+                        <div class="order-line"><span class="order-line-qty ml-0">SUBTOTAL ${peso(o.subtotal)}${o.bundleDiscount ? ` · BUNDLE −${peso(o.bundleDiscount)}` : ''}${o.discount ? ` · ${escapeHtml(o.discountCode || 'CODE')} −${peso(o.discount)}` : ''} · SHIPPING ${o.shippingFee ? peso(o.shippingFee) : 'FREE'}</span><span>${peso(o.total)}</span></div>
+                        ${o.trackingNumber || o.courier ? `<p class="panel-note mt-2.5 text-accent">◆ ${escapeHtml(o.courier || 'Courier')} · Tracking: <span class="select-all">${escapeHtml(o.trackingNumber || 'pending')}</span></p>` : ''}
+                        ${o.shippingAddress ? `<p class="panel-note mt-2">Ship to: ${escapeHtml(addressText(o.shippingAddress))} · ${escapeHtml(o.contactPhone)} · Cash on Delivery</p>` : ''}
+                        ${(o.returns || []).map(r => `<p class="panel-note mt-2 is-warn">↺ ${escapeHtml(r.kind)} request: ${escapeHtml(r.status)}${r.adminNote ? ` · "${escapeHtml(r.adminNote)}"` : ''}</p>`).join('')}
                         <div class="order-foot">
-                            <span class="panel-note">${o.status === 'pending' ? 'Awaiting payment confirmation' : `Last update ${new Date(o.updatedAt || o.createdAt).toLocaleString()}`}</span>
-                            ${o.status === 'pending' ? `<button class="btn btn-danger btn-auto" data-cancel="${escapeHtml(o.id)}">Cancel Order</button>` : ''}
+                            <span class="panel-note">${o.status === 'pending' ? 'Pay the courier on delivery' : `Last update ${new Date(o.updatedAt || o.createdAt).toLocaleString()}`}</span>
+                            <span class="flex gap-2 flex-wrap">
+                                <a class="btn btn-auto" href="Receipt.html?order=${escapeHtml(o.id)}" target="_blank">Receipt</a>
+                                <button class="btn btn-auto" data-again="${escapeHtml(o.id)}">Buy Again</button>
+                                ${['shipped', 'completed'].includes(o.status) && !(o.returns || []).some(r => ['requested', 'approved'].includes(r.status)) ? `<button class="btn btn-auto" data-return="${escapeHtml(o.id)}">Return / Exchange</button>` : ''}
+                                ${o.status === 'pending' ? `<button class="btn btn-danger btn-auto" data-cancel="${escapeHtml(o.id)}">Cancel Order</button>` : ''}
+                            </span>
                         </div>
                     </div>
                 </div>`;
@@ -146,6 +192,28 @@
         }
 
         document.querySelector('#tab-orders').addEventListener('click', (e) => {
+            const again = e.target.closest('[data-again]');
+            if (again) {
+                playSound('click');
+                const o = orders.find(x => String(x.id) === again.dataset.again);
+                if (!o) return;
+                for (const i of o.items) {
+                    if (!i.size) continue;
+                    addToStoredCart({ id: i.productId, name: i.title, price: i.unitPrice, size: i.size, color: i.color, quantity: i.quantity });
+                }
+                toast('Items added · stock and prices are re-checked in the cart');
+                setTimeout(() => { window.location.href = 'index.html#cart'; }, 900);
+                return;
+            }
+            const ret = e.target.closest('[data-return]');
+            if (ret) {
+                playSound('click');
+                returnTarget = ret.dataset.return;
+                $('returnModalId').textContent = `#${returnTarget}`;
+                $('returnDetails').value = '';
+                $('returnModal').classList.add('active');
+                return;
+            }
             const cancelBtn = e.target.closest('[data-cancel]');
             if (cancelBtn) {
                 playSound('click');
@@ -175,6 +243,31 @@
             }
         });
 
+        $('returnKind').addEventListener('click', (e) => {
+            const chip = e.target.closest('[data-kind]');
+            if (!chip) return;
+            playSound('click');
+            returnKind = chip.dataset.kind;
+            document.querySelectorAll('#returnKind .size-chip').forEach(c => c.classList.toggle('active', c === chip));
+        });
+        $('confirmReturnBtn').addEventListener('click', async function () {
+            if (this.disabled || !returnTarget) return;
+            this.disabled = true;
+            const r = await requestReturn(returnTarget, { kind: returnKind, reason: $('returnReason').value, details: $('returnDetails').value });
+            this.disabled = false;
+            $('returnModal').classList.remove('active');
+            if (r.ok) {
+                orders = orders.map(o => String(o.id) === String(returnTarget) ? r.data.order : o);
+                renderOrders();
+                playSound('success');
+                toast('Request submitted');
+            } else {
+                playSound('error');
+                const msg = { return_window_closed: '30-day window has closed', return_already_open: 'A request is already open', not_returnable: 'Order not shipped yet' };
+                toast(msg[r.data.error] || 'Request failed. Retry.', 'error');
+            }
+        });
+
         // ---------- Wishlist ----------
         function renderWishlist() {
             $('wishCount').textContent = wishlist.length ? `(${wishlist.length})` : '';
@@ -189,7 +282,7 @@
                     <h4>${escapeHtml(p.title)}</h4>
                     <p class="price">₱${p.price.toLocaleString()}</p>
                     <div class="card-actions">
-                        <button class="btn btn-blue" data-cart="${p.id}">Add to Cart</button>
+                        <a class="btn btn-blue" href="index.html?item=${p.id}">Choose Size ►</a>
                         <button class="btn btn-danger" data-unwish="${p.id}">Remove</button>
                     </div>
                 </div>`).join('');
@@ -200,13 +293,8 @@
         }
 
         $('wishGrid').addEventListener('click', async (e) => {
-            const add = e.target.closest('[data-cart]');
             const remove = e.target.closest('[data-unwish]');
-            if (add) {
-                playSound('click');
-                const p = wishlist.find(i => i.id === Number(add.dataset.cart));
-                if (p) { addToStoredCart(p); updateCartCount(); toast(`${p.title} added to cart`); }
-            } else if (remove) {
+            if (remove) {
                 playSound('click');
                 const id = Number(remove.dataset.unwish);
                 const r = await removeFromWishlist(id);

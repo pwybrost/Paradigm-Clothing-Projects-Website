@@ -9,7 +9,8 @@ Storefront for the Paradigm Spring/Summer 2026 archive, live at https://prdgm.ve
 ## Project layout
 
 ```
-frontend/                 index.html, Login.html, Signup.html, Profile.html, Orders.html
+frontend/                 index.html (archive), Login, Signup, Profile, Orders, Receipt, Info pages
+frontend/shop.js          Archive page logic (catalogue, cart, checkout, reviews)
 frontend/auth.js          API client
 frontend/ui.js            Shared sounds, profile menu, cart storage, toasts
 frontend/admin.js         Owner console (only loaded for admin accounts)
@@ -92,3 +93,13 @@ The database URL comes from the Neon integration's `DATABASE_URL` (or `POSTGRES_
 Tailwind's Preflight reset is not included because it would change the existing design. Each page keeps its CSS in
 `@layer components`, so Tailwind utilities override it the same way inline styles did. Theme values (`text-accent`,
 `text-danger`, `text-alert`, `font-mono`) are in `frontend/styles/tailwind.css`.
+
+## Store features (Batch 5)
+
+- Guests can browse. Logging in is only needed to check out, save a wishlist, review or request a restock.
+- Sizes, colours and stock per item, with pre-orders, drop countdowns, sale prices, badges and extra photos.
+- Checkout prices the cart on the server: stock, discount codes, bundle deal and shipping fee.
+  Payment is Cash on Delivery until a gateway is added.
+- Owner console: arrange, returns, customers, stock alerts, discount codes, inbox, store settings, CSV exports.
+- Edit the size-guide measurements in `SIZE_GUIDE` at the top of `frontend/shop.js`.
+- Vercel Analytics: enable it once under Project → Analytics. `frontend/analytics.js` only loads on vercel.app.

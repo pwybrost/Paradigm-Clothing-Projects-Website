@@ -61,26 +61,101 @@ export function initThemeToggle(button) {
     });
 }
 
-// ---------- Cart (kept in localStorage so it survives page changes; prices are re-checked by the server) ----------
+// ---------- Cart (kept in localStorage so it survives page changes; prices and stock are re-checked by the server) ----------
 const CART_KEY = 'paradigm_cart';
+export const cartKey = (i) => `${i.id}|${i.color || ''}|${i.size}`;
 export function loadCart() {
     try {
         const raw = JSON.parse(localStorage.getItem(CART_KEY));
-        return Array.isArray(raw) ? raw.filter((i) => Number.isInteger(i?.id) && Number.isInteger(i?.quantity) && i.quantity > 0) : [];
+        return Array.isArray(raw)
+            ? raw.filter((i) => Number.isInteger(i?.id) && Number.isInteger(i?.quantity) && i.quantity > 0 && typeof i.size === 'string' && i.size)
+                .map((i) => ({ ...i, color: typeof i.color === 'string' ? i.color : '' }))
+            : [];
     } catch {
         return [];
     }
 }
 export function saveCart(cart) {
-    localStorage.setItem(CART_KEY, JSON.stringify(cart.map(({ id, name, price, quantity }) => ({ id, name, price, quantity }))));
+    localStorage.setItem(CART_KEY, JSON.stringify(cart.map(({ id, name, price, size, color, quantity }) => ({ id, name, price, size, color, quantity }))));
 }
-export function addToStoredCart(product) {
+// item: { id, name, price, size, color, quantity }
+export function addToStoredCart(item) {
     const cart = loadCart();
-    const item = cart.find((i) => i.id === product.id);
-    if (item) item.quantity = Math.min(99, item.quantity + 1);
-    else cart.push({ id: product.id, name: product.title, price: product.price, quantity: 1 });
+    const existing = cart.find((i) => cartKey(i) === cartKey(item));
+    if (existing) existing.quantity = Math.min(99, existing.quantity + (item.quantity || 1));
+    else cart.push({ id: item.id, name: item.name, price: item.price, size: item.size, color: item.color || '', quantity: Math.min(99, item.quantity || 1) });
     saveCart(cart);
     return cart.reduce((sum, i) => sum + i.quantity, 0);
+}
+
+// ---------- Store settings (shipping, announcement, social links) ----------
+let settingsPromise;
+export function getStoreSettings() {
+    settingsPromise ??= fetch('/api/store/settings', { headers: { Accept: 'application/json' } })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+    return settingsPromise;
+}
+
+// ---------- Guest "Login" button (sits where the profile button goes) ----------
+export function mountLoginButton(next = 'index.html') {
+    const host = document.getElementById('headerActions');
+    if (!host) return;
+    const a = document.createElement('a');
+    a.className = 'header-btn btn-login';
+    a.href = `Login.html?next=${encodeURIComponent(next)}`;
+    a.textContent = '◉ Login';
+    a.addEventListener('click', () => playSound('click'));
+    host.prepend(a);
+}
+
+// ---------- Footer ----------
+export function renderFooter(el, settings) {
+    if (!el) return;
+    const social = settings?.social ?? {};
+    const socialLinks = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['facebook', 'Facebook']]
+        .filter(([k]) => social[k])
+        .map(([k, label]) => `<a href="${escapeHtml(social[k])}" target="_blank" rel="noopener noreferrer">${label}</a>`)
+        .join('');
+    el.innerHTML = `
+        <div class="footer-inner">
+            <div>
+                <div class="footer-title">Paradigm Clothing Projects</div>
+                <p class="footer-about">Graphic tees, collabs and limited drops. Designed in the Philippines. Cash on delivery nationwide.</p>
+                ${socialLinks ? `<div class="footer-social">${socialLinks}</div>` : ''}
+            </div>
+            <div class="footer-links">
+                <div class="footer-title">Information</div>
+                <a href="Info.html#about">About</a>
+                <a href="Info.html#faq">FAQ</a>
+                <a href="Info.html#shipping">Shipping &amp; Returns</a>
+                <a href="Info.html#contact">Contact</a>
+                <a href="Info.html#terms">Terms</a>
+                <a href="Info.html#privacy">Privacy Policy</a>
+            </div>
+            <div>
+                <div class="footer-title">Join the Transmission</div>
+                <p class="footer-about mb-2.5">Drop alerts and restocks, straight to your inbox.</p>
+                <form class="newsletter" id="newsletterForm">
+                    <input class="search-input" type="email" id="newsletterEmail" placeholder="EMAIL ADDRESS" required maxlength="254" />
+                    <button class="btn btn-blue" type="submit">Subscribe</button>
+                </form>
+            </div>
+        </div>
+        <div class="footer-bottom">Paradigm Clothing Projects · All Rights Reserved</div>`;
+    el.querySelector('#newsletterForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const email = el.querySelector('#newsletterEmail').value.trim();
+        const res = await fetch('/api/store/newsletter', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+        }).catch(() => null);
+        btn.disabled = false;
+        if (res?.ok) { playSound('success'); toast('Subscribed. Welcome to the transmission'); e.target.reset(); }
+        else { playSound('error'); toast(res?.status === 429 ? 'Too many attempts. Try later' : 'Enter a valid email', 'error'); }
+    });
 }
 
 // ---------- Toast ----------
@@ -127,6 +202,7 @@ export function mountUserMenu(user, { current } = {}) {
             ${item('Orders.html', 'My Orders', 'orders')}
             ${item('Orders.html#wishlist', 'Wishlist', 'wishlist')}
             ${item('index.html', 'Archive', 'archive')}
+            ${item('Info.html#contact', 'Help &amp; Contact', 'info')}
             <button class="user-menu-item is-danger" id="menuLogoutBtn">Disconnect</button>
         </div>`;
     host.prepend(wrap);

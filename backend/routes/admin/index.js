@@ -4,6 +4,7 @@ import { loadUser, requireAdmin } from '../../lib/session.js';
 import financeRouter from './finance.js';
 import ordersRouter from './orders.js';
 import productsRouter from './products.js';
+import storeRouter from './store.js';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use(loadUser, requireAdmin);
 router.use('/products', productsRouter);
 router.use('/orders', ordersRouter);
 router.use('/', financeRouter);
+router.use('/', storeRouter);
 
 export default router;

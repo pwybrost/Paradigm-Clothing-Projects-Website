@@ -61,4 +61,10 @@
     html.light-mode .user-menu-item:hover { background: #000; color: #fff; }
     html.light-mode .user-menu-head { border-color: #ddd; }
     html.light-mode .prdgm-toast { background: #fff; }
+
+    @media (max-width: 760px) {
+        .header-actions { top: 12px; right: 12px; gap: 6px; }
+        .btn-profile span:last-child { display: none; }
+        .user-menu { min-width: 220px; }
+    }
 }

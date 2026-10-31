@@ -123,4 +123,41 @@
     html.light-mode .cust-card, html.light-mode .pnl-stat { background: #fff; border-color: #ddd; color: #000; }
     html.light-mode .aorder, html.light-mode .cust-body, html.light-mode .admin-table td, html.light-mode .aorder-line { border-color: #e5e5e5; }
     html.light-mode .admin-field .search-input, html.light-mode .admin-toolbar .search-input, html.light-mode .expense-form .search-input { color: #000; }
+
+    /* --- Batch 5 owner tools --- */
+    .btn-auto { width: auto !important; padding: 10px 16px; display: inline-block; text-align: center; text-decoration: none; }
+    a.btn { text-decoration: none; display: inline-block; text-align: center; }
+    .admin-x.is-blue { border-color: #3b82f6; color: #3b82f6; }
+    .admin-x.is-blue:hover { background: #3b82f6; color: #fff; }
+    .admin-note.is-warn { color: #e0a84a; }
+    .admin-photo-col { width: 40%; flex-shrink: 0; }
+    .admin-photo-col .admin-photo { width: 100%; }
+    .admin-gallery { display: flex; gap: 8px; flex-wrap: wrap; }
+    .admin-thumb { width: 64px; height: 64px; border: 1px solid #333; position: relative; background: #050505; }
+    .admin-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .admin-thumb button { position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; background: #000; border: 1px solid #ff4d4d; color: #ff4d4d; font-size: 10px; cursor: pointer; line-height: 1; }
+    .admin-thumb button:hover { background: #ff4d4d; color: #000; }
+    .admin-thumb-add { color: #3b82f6; border: 1px dashed #3b82f6; font-size: 24px; cursor: pointer; background: transparent; }
+    .admin-thumb-add:hover { background: rgba(59,130,246,0.1); }
+    .admin-check { display: flex; align-items: center; gap: 7px; font-family: monospace; font-size: 9px; letter-spacing: 2px; color: #aaa; text-transform: uppercase; cursor: pointer; border: 1px solid #222; padding: 8px 10px; }
+    .admin-stock-table td, .admin-stock-table th { padding: 5px 4px; }
+    .stock-input { width: 64px !important; padding: 7px !important; text-align: center !important; font-size: 11px !important; letter-spacing: 0 !important; }
+    .admin-inline-form { display: grid; grid-template-columns: 1.3fr 0.8fr 0.8fr 0.9fr 0.9fr 1.2fr auto; gap: 8px; margin-bottom: 16px; }
+    .admin-inline-form .search-input { padding: 11px; text-align: left; font-size: 10px; }
+    .admin-inline-form select.search-input { appearance: none; cursor: pointer; }
+    .admin-inline-form .btn { width: auto; padding: 0 16px; }
+    .aorder-actions .search-input { width: auto; padding: 9px 12px; text-align: left; font-size: 10px; text-transform: none; letter-spacing: 1px; }
+    .aorder-actions .btn, .aorder-actions a.btn { width: auto; padding: 9px 14px; }
+    .admin-move { position: absolute; top: 58px; left: 22px; z-index: 3; display: flex; gap: 4px; }
+    .admin-move button { width: 30px; height: 30px; background: #3b82f6; border: none; color: #fff; cursor: pointer; font-size: 11px; box-shadow: 0 0 12px rgba(59,130,246,0.7); }
+    .admin-move button:hover { background: #fff; color: #000; }
+    .admin-console-inner { justify-content: flex-start; }
+    .admin-console { max-width: 1100px; }
+    @media (max-width: 900px) {
+        .admin-photo-col { width: 100%; }
+        .admin-inline-form { grid-template-columns: 1fr 1fr; }
+        .admin-console-label { width: 100%; }
+        .admin-row { flex-wrap: wrap; }
+        .admin-table { display: block; overflow-x: auto; }
+    }
 }

@@ -45,8 +45,19 @@ inclusion: always
   net profit, margin, pending revenue, timeline chart, top items, expense log. Ranges 7d/30d/90d/12m/all.
 - Orders menu: grouped by customer, search, status filters, expand customer -> orders -> items, update status.
 
+### Batch 5: full store features (done, before Batch 4)
+- Phone/tablet layout (desktop unchanged; rules in styles/shop.css after the page CSS), guest browsing (login only for
+  checkout/wishlist/reviews; Login.html?next= return), sizes/colours/stock (`product_variants`), shipping checkout (COD).
+- Size guide (`SIZE_GUIDE` in frontend/shop.js), extra photos (`product_gallery`), categories, sort, badges, sale price
+  (`compare_at_price`), drop countdown (`release_at`), pre-orders, restock requests, related items, recently viewed, share links (?item=).
+- Discount codes, bundle deal, free-shipping threshold, announcement banner (all in Store Settings / Discounts).
+- Tracking number + courier, receipts (Receipt.html), Buy Again, return/exchange requests, verified reviews.
+- Owner console: Arrange, Returns, Customers, Stock (low stock + restock list), Discounts, Inbox (messages + newsletter),
+  Store Settings, CSV export (orders, P&L, subscribers), hide/show items, styled confirm dialogs.
+- Info.html (About, FAQ, Shipping & Returns, Contact form, Terms, Privacy), footer + newsletter, OG tags, robots.txt,
+  sitemap.xml, Vercel Analytics loader, login/signup rate limiting.
+
 ### Batch 4: hardening and payments
 - Real payment gateway (PayMongo or Stripe) instead of "pending / pay on delivery" orders.
-- Email provider (Resend): phone-change confirmation, password reset, email verification at signup.
-- Login rate limiting.
-- Stock/inventory and sizes per product.
+- Email provider (Resend): phone-change confirmation, password reset, signup verification, order/shipping emails,
+  restock alerts (requests already stored), newsletter sending.

@@ -2,6 +2,7 @@
 //
 // Revenue counts orders that are paid, shipped or completed ("realized").
 // Pending orders are reported separately; cancelled orders are ignored.
+// Revenue = what customers paid (after discounts, including shipping fees).
 // Profit = revenue - cost of goods (unit_cost snapshot at purchase) - expenses.
 import { Router } from 'express';
 import { query } from '../../db.js';
@@ -27,12 +28,13 @@ router.get('/pnl', async (req, res) => {
 
     const [summary, pending, expenseTotal, series, expenseSeries, top, expenses] = await Promise.all([
         query(
-            `SELECT count(DISTINCT o.id)::int AS orders,
-                    coalesce(sum(oi.line_total), 0)::numeric AS revenue,
-                    coalesce(sum(oi.unit_cost * oi.quantity), 0)::numeric AS cogs,
-                    coalesce(sum(oi.quantity), 0)::int AS units
-             FROM orders o JOIN order_items oi ON oi.order_id = o.id
-             WHERE o.status IN ${REALIZED} AND ($1::timestamptz IS NULL OR o.created_at >= $1)`,
+            `WITH o AS (SELECT * FROM orders WHERE status IN ${REALIZED} AND ($1::timestamptz IS NULL OR created_at >= $1))
+             SELECT (SELECT count(*) FROM o)::int AS orders,
+                    (SELECT coalesce(sum(total), 0) FROM o)::numeric AS revenue,
+                    (SELECT coalesce(sum(discount + bundle_discount), 0) FROM o)::numeric AS discounts,
+                    (SELECT coalesce(sum(shipping_fee), 0) FROM o)::numeric AS shipping,
+                    (SELECT coalesce(sum(oi.unit_cost * oi.quantity), 0) FROM order_items oi JOIN o ON o.id = oi.order_id)::numeric AS cogs,
+                    (SELECT coalesce(sum(oi.quantity), 0) FROM order_items oi JOIN o ON o.id = oi.order_id)::int AS units`,
             [since],
         ),
         query(
@@ -46,11 +48,13 @@ router.get('/pnl', async (req, res) => {
             [since],
         ),
         query(
-            `SELECT date_trunc('${bucket}', o.created_at) AS period,
-                    sum(oi.line_total)::numeric AS revenue,
-                    sum(oi.unit_cost * oi.quantity)::numeric AS cogs
-             FROM orders o JOIN order_items oi ON oi.order_id = o.id
-             WHERE o.status IN ${REALIZED} AND ($1::timestamptz IS NULL OR o.created_at >= $1)
+            `SELECT date_trunc('${bucket}', t.created_at) AS period,
+                    sum(t.total)::numeric AS revenue,
+                    sum(t.cogs)::numeric AS cogs
+             FROM (SELECT o.created_at, o.total,
+                          (SELECT coalesce(sum(oi.unit_cost * oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id) AS cogs
+                   FROM orders o
+                   WHERE o.status IN ${REALIZED} AND ($1::timestamptz IS NULL OR o.created_at >= $1)) t
              GROUP BY 1 ORDER BY 1`,
             [since],
         ),
@@ -107,6 +111,8 @@ router.get('/pnl', async (req, res) => {
             units: s.units,
             revenue: s.revenue,
             cogs: s.cogs,
+            discounts: s.discounts,
+            shippingCollected: s.shipping,
             grossProfit,
             expenses: expenseAmount,
             netProfit,

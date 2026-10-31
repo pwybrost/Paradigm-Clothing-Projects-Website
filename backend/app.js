@@ -9,6 +9,7 @@ import productsRouter from './routes/products.js';
 import profileRouter from './routes/profile.js';
 import wishlistRouter from './routes/wishlist.js';
 import adminRouter from './routes/admin/index.js';
+import storeRouter from './routes/store.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -34,6 +35,7 @@ app.use('/api/products', productsRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/wishlist', wishlistRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/store', storeRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 

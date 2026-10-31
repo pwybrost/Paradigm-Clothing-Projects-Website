@@ -170,4 +170,23 @@
     html.light-mode .tab-btn:hover { color: #000; }
     html.light-mode .stat, html.light-mode .order-body, html.light-mode .order-line, html.light-mode .panel-title { border-color: #e2e2e2; }
     html.light-mode .tracker-step::before { background: #fff; }
+
+    /* --- Phones (desktop unchanged) --- */
+    @media (max-width: 760px) {
+        .header-btn { top: 12px; padding: 10px 12px; font-size: 9px; letter-spacing: 1px; }
+        .btn-left { left: 12px; }
+        .header-actions { top: 12px; right: 12px; gap: 6px; }
+        .btn-profile span:last-child { display: none; }
+        .page-header { padding: 80px 10px 16px; }
+        .page-header h1 { font-size: 30px; letter-spacing: 8px; }
+        .tabs { flex-wrap: wrap; }
+        .tab-btn { flex: 1 1 45%; padding: 12px 6px; letter-spacing: 2px; }
+        .panel { padding: 20px 16px; }
+        .field-row { grid-template-columns: 1fr; gap: 0; }
+        .toolbar { flex-direction: column; }
+        .order-head { padding: 14px; gap: 8px; }
+        .order-foot .btn-auto { padding: 10px 12px; }
+        .modal-content { padding: 50px 18px 24px; }
+        .modal-actions { flex-direction: column; }
+    }
 }

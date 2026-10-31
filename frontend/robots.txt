@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /Profile.html
+Disallow: /Orders.html
+Disallow: /Receipt.html
+
+Sitemap: https://prdgm.vercel.app/sitemap.xml
