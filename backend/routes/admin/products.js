@@ -128,16 +128,24 @@ function readImage(dataUrl) {
     return { data, mimeType, sha256: createHash('sha256').update(data).digest('hex') };
 }
 
-async function saveImage(client, productId, image) {
+// thumb: optional card-sized copy made in the browser (falls back to the full photo if missing).
+async function saveImage(client, productId, image, thumb = null) {
     await client.query(
-        `INSERT INTO product_images (product_id, mime_type, data, byte_size, sha256, original_filename)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO product_images (product_id, mime_type, data, byte_size, sha256, original_filename, thumb, thumb_mime)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (product_id) DO UPDATE SET mime_type = EXCLUDED.mime_type, data = EXCLUDED.data,
             width = NULL, height = NULL, byte_size = EXCLUDED.byte_size, sha256 = EXCLUDED.sha256,
-            original_filename = EXCLUDED.original_filename, updated_at = now()`,
-        [productId, image.mimeType, image.data, image.data.length, image.sha256, `admin-upload-${productId}`],
+            original_filename = EXCLUDED.original_filename, thumb = EXCLUDED.thumb, thumb_mime = EXCLUDED.thumb_mime,
+            updated_at = now()`,
+        [productId, image.mimeType, image.data, image.data.length, image.sha256, `admin-upload-${productId}`,
+            thumb?.data ?? null, thumb?.mimeType ?? null],
     );
 }
+const readThumb = (dataUrl) => {
+    if (!dataUrl) return null;
+    const t = readImage(dataUrl);
+    return t.error || t.data.length > 400 * 1024 ? null : t;
+};
 
 async function saveVariants(client, productId, variants) {
     await client.query('DELETE FROM product_variants WHERE product_id = $1', [productId]);
@@ -189,7 +197,7 @@ router.post('/', async (req, res) => {
             `INSERT INTO products (${cols.join(', ')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(', ')})`,
             values,
         );
-        await saveImage(client, newId, image);
+        await saveImage(client, newId, image, readThumb(req.body?.thumb));
         await saveVariants(client, newId, variants);
         return newId;
     });
@@ -220,7 +228,7 @@ router.patch('/:id', async (req, res) => {
             const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
             await client.query(`UPDATE products SET ${sets}, updated_at = now() WHERE id = $1`, [id, ...keys.map((k) => fields[k])]);
         }
-        if (image) await saveImage(client, id, image);
+        if (image) await saveImage(client, id, image, readThumb(req.body?.thumb));
         if (variants) await saveVariants(client, id, variants);
         return true;
     });

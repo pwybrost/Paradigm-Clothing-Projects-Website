@@ -5,10 +5,12 @@ export const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 const BEST_SELLER_COUNT = 3;
 
 const productImage = (id, sha) => (sha ? `/api/products/${id}/image?v=${sha.slice(0, 16)}` : null);
+// Card-sized version (about 520px) so the grid doesn't decode 19 full-size photos.
+const productThumb = (id, sha, hasThumb) => (sha ? `/api/products/${id}/image?v=${sha.slice(0, 16)}${hasThumb ? '&size=card' : ''}` : null);
 const galleryImage = (id, g) => `/api/products/${id}/gallery/${g.id}?v=${String(g.sha).slice(0, 16)}`;
 
 const LIST_SQL = (where) => `
-    SELECT p.*, i.sha256,
+    SELECT p.*, i.sha256, (i.thumb IS NOT NULL) AS has_thumb,
         coalesce((SELECT json_agg(json_build_object('color', v.color, 'size', v.size, 'stock', v.stock)
                                   ORDER BY v.color, array_position($1::text[], v.size))
                   FROM product_variants v WHERE v.product_id = p.id), '[]') AS variants,
@@ -33,6 +35,7 @@ function toDto(row, { owner }) {
         compareAtPrice: row.compare_at_price && row.compare_at_price > row.price ? row.compare_at_price : null,
         category: row.category,
         image: productImage(row.id, row.sha256),
+        thumb: productThumb(row.id, row.sha256, row.has_thumb),
         gallery: row.gallery.map((g) => galleryImage(row.id, g)),
         variants: row.variants,
         rating: row.rating,

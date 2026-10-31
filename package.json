@@ -5,7 +5,7 @@
   "description": "Paradigm Clothing Projects storefront: static frontend + Express API on Neon PostgreSQL, deployed on Vercel.",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "scripts": {
     "build": "tailwindcss -i ./frontend/styles/tailwind.css -o ./frontend/css/tailwind.css --minify",
@@ -15,7 +15,6 @@
     "db:migrate": "node backend/scripts/migrate.js",
     "db:seed": "node backend/scripts/seed.js",
     "db:setup": "npm run db:migrate && npm run db:seed",
-    "admin:promote": "node backend/scripts/promote-admin.js",
     "vercel-build": "npm run build && node backend/scripts/migrate.js --if-configured && node backend/scripts/seed.js --if-configured"
   },
   "dependencies": {

@@ -22,7 +22,7 @@ inclusion: always
 - Migrations + photo seeding run automatically on every Vercel build.
 - Accounts moved from localStorage to Neon: scrypt password hashes, HttpOnly session cookies, `user`/`admin` roles.
 - Real checkout: orders + order items saved in Neon with server-side prices.
-- `npm run admin:promote -- you@email.com` makes the owner account an admin.
+- Owner = ADMIN_EMAILS (default pwybrost@addu.edu.ph); enforced on deploy, login and every admin request.
 
 ### Batch 2: user profile (done)
 - Profile button + dropdown next to Theme (archive, profile and orders pages): `frontend/ui.js` `mountUserMenu`.

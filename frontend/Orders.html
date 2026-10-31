@@ -7,11 +7,14 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#000000" />
-    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <script>(function(d){var h=d.documentElement,n=navigator;try{if(localStorage.getItem('paradigm_theme')==='light')h.classList.add('light-mode')}catch(e){}var m=null;try{m=localStorage.getItem('paradigm_perf')}catch(e){}if(m==='lite'||(m!=='full'&&((n.hardwareConcurrency||8)<=4||(n.deviceMemory||8)<=4||(n.connection&&n.connection.saveData))))h.classList.add('perf-lite')})(document);</script>
     <link rel="stylesheet" href="css/tailwind.css" />
     <link rel="stylesheet" href="styles/account.css" />
     <link rel="stylesheet" href="styles/menu.css" />
     <script defer src="analytics.js"></script>
+    <link rel="stylesheet" href="styles/light.css" />
+    <link rel="stylesheet" href="styles/perf.css" />
+    <script defer src="pwa.js"></script>
 </head>
 <body>
 

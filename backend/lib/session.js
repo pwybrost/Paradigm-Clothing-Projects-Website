@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { config } from '../config.js';
+import { config, isOwnerEmail } from '../config.js';
 import { query } from '../db.js';
 
 export const SESSION_COOKIE = 'prdgm_session';
@@ -109,7 +109,11 @@ export async function loadUser(req, _res, next) {
              WHERE s.token_hash = $1 AND s.expires_at > now()`,
             [hashToken(token)],
         );
-        if (rows[0]) req.user = rows[0];
+        if (rows[0]) {
+            req.user = rows[0];
+            // Only the owner email can act as admin, whatever the database says.
+            req.user.role = isOwnerEmail(req.user.email) ? 'admin' : 'user';
+        }
     }
     next();
 }

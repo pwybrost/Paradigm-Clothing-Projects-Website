@@ -89,6 +89,16 @@ export async function seedCatalog() {
             [DEFAULT_SIZES, DEFAULT_STOCK],
         );
         if (variants.rowCount) console.log(`[seed] added default sizes (${variants.rowCount} size rows)`);
+
+        // Card thumbnails (~520px) for any photo that doesn't have one yet, including owner uploads.
+        if (sharp) {
+            const { rows: missing } = await client.query('SELECT product_id, data FROM product_images WHERE thumb IS NULL');
+            for (const r of missing) {
+                const thumb = await sharp(r.data).resize({ width: 520, height: 520, fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+                await client.query("UPDATE product_images SET thumb = $2, thumb_mime = 'image/webp' WHERE product_id = $1", [r.product_id, thumb]);
+            }
+            if (missing.length) console.log(`[seed] created ${missing.length} card thumbnail(s)`);
+        }
         console.log(`[seed] done: ${added} new image(s) stored, ${products.length - added} already present or skipped`);
     });
 }

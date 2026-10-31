@@ -1,13 +1,21 @@
 // Shared UI helpers for the archive, profile and orders pages.
-import { logout } from './auth.js';
+import { logout, flushOutbox, readOutbox, sendOrQueue } from './auth.js';
 
 // ---------- Sounds (same Web Audio tones as Login/Signup) ----------
 let audioCtx;
 let lastPlayed = 0;
+
+// Runs fn right after the next frame is painted, so work like audio setup never delays a click's visual response.
+export const afterPaint = (fn) => requestAnimationFrame(() => setTimeout(fn, 0));
+
 export function playSound(type = 'click') {
     const now = Date.now();
     if (type === 'click' && now - lastPlayed < 100) return;
     lastPlayed = now;
+    afterPaint(() => playTone(type));
+}
+
+function playTone(type) {
     try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -53,12 +61,17 @@ export const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c)
 
 export const peso = (n) => `₱${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Theme switch: transitions are paused for one frame so hundreds of elements don't animate their colours at once.
+export function toggleTheme() {
+    const h = document.documentElement;
+    h.classList.add('theme-switching');
+    const light = h.classList.toggle('light-mode');
+    requestAnimationFrame(() => requestAnimationFrame(() => h.classList.remove('theme-switching')));
+    afterPaint(() => { try { localStorage.setItem('paradigm_theme', light ? 'light' : 'dark'); } catch { /* private mode */ } });
+}
+
 export function initThemeToggle(button) {
-    button?.addEventListener('click', () => {
-        playSound('click');
-        document.documentElement.classList.toggle('light-mode');
-        localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark');
-    });
+    button?.addEventListener('click', () => { toggleTheme(); playSound('click'); });
 }
 
 // ---------- Cart (kept in localStorage so it survives page changes; prices and stock are re-checked by the server) ----------
@@ -75,7 +88,8 @@ export function loadCart() {
         return [];
     }
 }
-export function saveCart(cart) {
+export function saveCart(cart, { touch = true } = {}) {
+    if (touch) localStorage.setItem('paradigm_cart_ts', String(Date.now()));
     localStorage.setItem(CART_KEY, JSON.stringify(cart.map(({ id, name, price, size, color, quantity }) => ({ id, name, price, size, color, quantity }))));
 }
 // item: { id, name, price, size, color, quantity }
@@ -149,12 +163,11 @@ export function renderFooter(el, settings) {
         if (btn.disabled) return;
         btn.disabled = true;
         const email = el.querySelector('#newsletterEmail').value.trim();
-        const res = await fetch('/api/store/newsletter', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
-        }).catch(() => null);
+        const res = await sendOrQueue('/api/store/newsletter', { method: 'POST', body: { email }, label: 'Newsletter signup' });
         btn.disabled = false;
-        if (res?.ok) { playSound('success'); toast('Subscribed. Welcome to the transmission'); e.target.reset(); }
-        else { playSound('error'); toast(res?.status === 429 ? 'Too many attempts. Try later' : 'Enter a valid email', 'error'); }
+        if (res.queued) { toast('Offline · you will be subscribed when the connection returns'); e.target.reset(); }
+        else if (res.ok) { playSound('success'); toast('Subscribed. Welcome to the transmission'); e.target.reset(); }
+        else { playSound('error'); toast(res.status === 429 ? 'Too many attempts. Try later' : 'Enter a valid email', 'error'); }
     });
 }
 
@@ -225,3 +238,54 @@ export function mountUserMenu(user, { current } = {}) {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
     wrap.querySelector('#menuLogoutBtn').addEventListener('click', () => logout());
 }
+
+// ---------- Connectivity + offline sync ----------
+// Shows a small bar when offline or when saved actions are waiting, and sends them when back online.
+let netBar;
+function paintNetBar(syncing = false) {
+    netBar ??= Object.assign(document.createElement('div'), { className: 'net-bar', role: 'status' });
+    if (!netBar.isConnected) document.body.appendChild(netBar);
+    const queued = readOutbox().length;
+    const offline = !navigator.onLine;
+    netBar.classList.toggle('is-syncing', !offline && (syncing || queued > 0));
+    netBar.textContent = offline
+        ? `◆ Offline · showing saved data${queued ? ` · ${queued} action(s) will sync when you're back` : ''}`
+        : queued ? `◆ Syncing ${queued} saved action(s)...` : '';
+    netBar.classList.toggle('show', offline || queued > 0);
+}
+
+function onOutboxEvent(e) {
+    const { type, entry, data } = e.detail;
+    if (type === 'syncing') return paintNetBar(true);
+    if (type === 'changed') return paintNetBar();
+    if (entry?.kind === 'order') {
+        if (type === 'sent') {
+            playSound('success');
+            toast(data?.checkoutUrl ? `Order #${data.order?.id} placed · complete payment in My Orders` : `Saved order #${data?.order?.id} placed`);
+        } else {
+            // Order couldn't go through (e.g. an item sold out meanwhile): put the items back in the cart.
+            for (const item of entry.meta?.cart ?? []) addToStoredCart(item);
+            playSound('error');
+            toast('A saved order could not be placed · items are back in your cart', 'error');
+        }
+        window.dispatchEvent(new CustomEvent('prdgm:cart-restored'));
+    } else if (type === 'sent' && entry?.label) {
+        toast(`${entry.label} synced`);
+    } else if (type === 'failed' && entry?.label && entry.kind !== 'cart') {
+        toast(`${entry.label} could not be synced`, 'error');
+    }
+}
+
+let connectivityStarted = false;
+export function initConnectivity() {
+    if (connectivityStarted) return;
+    connectivityStarted = true;
+    window.addEventListener('prdgm:outbox', onOutboxEvent);
+    window.addEventListener('online', () => { paintNetBar(); flushOutbox(); });
+    window.addEventListener('offline', () => paintNetBar());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) flushOutbox(); });
+    setInterval(() => { if (!document.hidden) flushOutbox(); }, 30_000);
+    const start = () => { paintNetBar(); flushOutbox(); };
+    document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', start) : start();
+}
+initConnectivity();

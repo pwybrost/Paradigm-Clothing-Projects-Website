@@ -529,12 +529,14 @@ async function resizeImage(file, maxSide = 1600) {
     throw new Error('too_large');
 }
 
+let pendingThumb = null;
 async function onPhotoPicked(e) {
     const file = e.target.files[0];
     if (!file) return;
     try {
         $('admEditStatus').textContent = 'Processing image...';
         pendingImage = await resizeImage(file);
+        pendingThumb = await resizeImage(file, 520).catch(() => null); // small copy for the shop grid
         paintPhoto(pendingImage);
         $('admEditStatus').textContent = 'New image ready. Save to apply.';
     } catch {
@@ -564,7 +566,7 @@ async function saveProduct() {
     if (!(Number.parseFloat(body.price) >= 0)) { playSound('error'); toast('Enter a valid price', 'error'); return; }
     if (!variants.length) { playSound('error'); toast('Add at least one size', 'error'); return; }
     if (editing.isNew && !pendingImage) { playSound('error'); toast('Upload a main photo first', 'error'); return; }
-    if (pendingImage) body.image = pendingImage;
+    if (pendingImage) { body.image = pendingImage; if (pendingThumb) body.thumb = pendingThumb; }
 
     btn.disabled = true;
     $('admEditStatus').textContent = 'Transmitting...';

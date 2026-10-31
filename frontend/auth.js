@@ -38,6 +38,7 @@ export async function signup(username, email, phone, password) {
 // Returns { success: true, user } or { success: false, error: 'invalid_credentials' | 'network_error' | ... }
 export async function login(email, password) {
     const { ok, data } = await api('/api/auth/login', { method: 'POST', body: { email, password } });
+    if (ok) clearUserData();
     return ok ? { success: true, user: data.user } : { success: false, error: data.error };
 }
 
@@ -55,14 +56,27 @@ export async function resetAccount(email, password) {
 
 export async function logout() {
     await api('/api/auth/logout', { method: 'POST' });
+    clearUserData();
     window.location.href = 'Login.html';
+}
+
+// Forget everything tied to the previous account on this device (offline copies + unsent actions).
+export function clearUserData() {
+    try { localStorage.removeItem(OUTBOX_KEY); localStorage.removeItem('paradigm_cart_ts'); } catch { /* ignore */ }
+    navigator.serviceWorker?.controller?.postMessage({ type: 'clear-user-cache' });
 }
 
 // payload: { items: [{ id, size, color, quantity }], shipping, notes, discountCode, saveAddress }.
 // Prices, stock, discounts and shipping are calculated by the server.
-export async function placeOrder(payload) {
-    const { ok, data } = await api('/api/orders', { method: 'POST', body: payload });
-    return ok ? { success: true, order: data.order, data } : { success: false, error: data.error, data };
+// payload.requestId makes retries safe: the server returns the same order instead of a duplicate.
+// If the server/network is down, the order is kept on this device and sent automatically later.
+export async function placeOrder(payload, cartSnapshot = []) {
+    const r = await api('/api/orders', { method: 'POST', body: payload });
+    if (retryable(r.status)) {
+        enqueue({ path: '/api/orders', method: 'POST', body: payload, kind: 'order', label: 'Order', meta: { cart: cartSnapshot } });
+        return { success: false, queued: true, error: 'queued' };
+    }
+    return r.ok ? { success: true, order: r.data.order, data: r.data } : { success: false, error: r.data.error, data: r.data };
 }
 
 export const quoteCart = (items, discountCode) => api('/api/orders/quote', { method: 'POST', body: { items, discountCode } });
@@ -71,7 +85,7 @@ export const requestReturn = (id, body) => api(`/api/orders/${encodeURIComponent
 
 // ---------- Profile ----------
 export const getProfile = () => api('/api/profile');
-export const updateProfile = (fields) => api('/api/profile', { method: 'PATCH', body: fields });
+export const updateProfile = (fields) => sendOrQueue('/api/profile', { method: 'PATCH', body: fields, dedupe: 'profile', label: 'Profile changes' });
 export const updateName = (firstName, lastName) => api('/api/profile/name', { method: 'PUT', body: { firstName, lastName } });
 export const uploadAvatar = (dataUrl) => api('/api/profile/avatar', { method: 'PUT', body: { image: dataUrl } });
 export const deleteAvatar = () => api('/api/profile/avatar', { method: 'DELETE' });
@@ -85,8 +99,14 @@ export const cancelOrder = (id) => api(`/api/orders/${encodeURIComponent(id)}/ca
 
 // ---------- Wishlist ----------
 export const getWishlist = () => api('/api/wishlist');
-export const addToWishlist = (productId) => api(`/api/wishlist/${productId}`, { method: 'PUT' });
-export const removeFromWishlist = (productId) => api(`/api/wishlist/${productId}`, { method: 'DELETE' });
+export const addToWishlist = (productId) => sendOrQueue(`/api/wishlist/${productId}`, { method: 'PUT', dedupe: `wish:${productId}`, label: 'Wishlist' });
+export const removeFromWishlist = (productId) => sendOrQueue(`/api/wishlist/${productId}`, { method: 'DELETE', dedupe: `wish:${productId}`, label: 'Wishlist' });
+
+// ---------- Saved cart (per account, synced across devices) ----------
+export const getServerCart = () => api('/api/cart');
+export const syncCart = (items, updatedAt) => sendOrQueue('/api/cart', {
+    method: 'PUT', body: { items: items.map(({ id, size, color, quantity }) => ({ id, size, color, quantity })), updatedAt }, dedupe: 'cart', label: 'Cart',
+});
 
 // ---------- Email links & payments ----------
 export const forgotPassword = (email) => api('/api/auth/forgot', { method: 'POST', body: { email } });
@@ -97,3 +117,58 @@ export const resendVerification = () => api('/api/auth/resend-verification', { m
 export const requestPhoneChange = (phone) => api('/api/profile/phone', { method: 'POST', body: { phone } });
 export const payOrder = (id) => api(`/api/orders/${encodeURIComponent(id)}/pay`, { method: 'POST' });
 export const checkPayment = (id) => api(`/api/orders/${encodeURIComponent(id)}/payment`);
+
+// ---------- Offline outbox ----------
+// Actions that fail because the network or server is down (status 0 / 502 / 503 / 504) are stored
+// on this device and replayed in order when the connection returns. Other errors are not retried.
+const OUTBOX_KEY = 'paradigm_outbox';
+const retryable = (status) => status === 0 || status === 502 || status === 503 || status === 504;
+
+export function readOutbox() {
+    try {
+        const v = JSON.parse(localStorage.getItem(OUTBOX_KEY));
+        return Array.isArray(v) ? v : [];
+    } catch {
+        return [];
+    }
+}
+function writeOutbox(list) {
+    try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(list)); } catch { /* storage full */ }
+    window.dispatchEvent(new CustomEvent('prdgm:outbox', { detail: { type: 'changed', count: list.length } }));
+}
+export const newRequestId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
+
+function enqueue(entry) {
+    // dedupe: only the latest action per key matters (e.g. heart then un-heart the same item).
+    const list = entry.dedupe ? readOutbox().filter((e) => e.dedupe !== entry.dedupe) : readOutbox();
+    list.push({ ...entry, id: newRequestId(), createdAt: Date.now() });
+    writeOutbox(list.slice(-100));
+}
+
+export async function sendOrQueue(path, { method = 'POST', body, label = 'Action', dedupe, kind = 'action', meta } = {}) {
+    const r = await api(path, { method, body });
+    if (retryable(r.status)) {
+        enqueue({ path, method, body, label, dedupe, kind, meta });
+        return { ...r, ok: true, queued: true };
+    }
+    return r;
+}
+
+let flushing = false;
+export async function flushOutbox() {
+    if (flushing || !navigator.onLine || readOutbox().length === 0) return;
+    flushing = true;
+    window.dispatchEvent(new CustomEvent('prdgm:outbox', { detail: { type: 'syncing', count: readOutbox().length } }));
+    try {
+        for (let list = readOutbox(); list.length; list = readOutbox()) {
+            const entry = list[0];
+            const r = await api(entry.path, { method: entry.method, body: entry.body });
+            if (retryable(r.status)) break; // still down: try again later
+            writeOutbox(readOutbox().filter((e) => e.id !== entry.id));
+            window.dispatchEvent(new CustomEvent('prdgm:outbox', { detail: { type: r.ok ? 'sent' : 'failed', entry, data: r.data, status: r.status } }));
+        }
+    } finally {
+        flushing = false;
+        window.dispatchEvent(new CustomEvent('prdgm:outbox', { detail: { type: 'changed', count: readOutbox().length } }));
+    }
+}

@@ -7,7 +7,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#000000" />
-    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <script>(function(d){var h=d.documentElement,n=navigator;try{if(localStorage.getItem('paradigm_theme')==='light')h.classList.add('light-mode')}catch(e){}var m=null;try{m=localStorage.getItem('paradigm_perf')}catch(e){}if(m==='lite'||(m!=='full'&&((n.hardwareConcurrency||8)<=4||(n.deviceMemory||8)<=4||(n.connection&&n.connection.saveData))))h.classList.add('perf-lite')})(document);</script>
     <link rel="stylesheet" href="css/tailwind.css" />
     <script defer src="analytics.js"></script>
     <style>
@@ -136,6 +136,9 @@
             html.light-mode .link-danger { color: #d32f2f; }
         }
     </style>
+    <link rel="stylesheet" href="styles/light.css" />
+    <link rel="stylesheet" href="styles/perf.css" />
+    <script defer src="pwa.js"></script>
 </head>
 <body>
 
@@ -267,7 +270,8 @@
             }
         }
 
-        document.getElementById('themeToggleBtn').addEventListener('click', () => { document.documentElement.classList.toggle('light-mode'); localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark'); playSound('click'); });
+        function fastToggleTheme() { const h = document.documentElement; h.classList.add('theme-switching'); const light = h.classList.toggle('light-mode'); requestAnimationFrame(() => requestAnimationFrame(() => h.classList.remove('theme-switching'))); setTimeout(() => localStorage.setItem('paradigm_theme', light ? 'light' : 'dark'), 0); }
+        document.getElementById('themeToggleBtn').addEventListener('click', () => { fastToggleTheme(); requestAnimationFrame(() => setTimeout(() => playSound('click'), 0)); });
         document.getElementById('togglePassLog').addEventListener('click', function() { playSound('click'); const input = document.getElementById('signinPassword'); input.type = input.type === "password" ? "text" : "password"; this.style.opacity = input.type === "text" ? "1" : "0.5"; });
         document.getElementById('initLink').addEventListener('click', () => playSound('click'));
         document.getElementById('forgotBtn').addEventListener('click', () => playSound('click'));

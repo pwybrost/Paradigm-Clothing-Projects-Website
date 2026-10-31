@@ -79,8 +79,16 @@ router.post('/', async (req, res) => {
     const discountCode = str(req.body?.discountCode);
     const online = req.body?.paymentMethod === 'online';
     if (online && !paymentsEnabled()) return res.status(400).json({ error: 'payments_unavailable' });
+    // Same request id as an earlier attempt (e.g. resent after the connection dropped): return that order.
+    const requestId = /^[\w-]{8,64}$/.test(str(req.body?.requestId)) ? str(req.body.requestId) : null;
+    if (requestId) {
+        const [existing] = await loadOrders('WHERE user_id = $1 AND client_request_id = $2', [req.user.id, requestId]);
+        if (existing) return res.status(200).json({ order: existing, duplicate: true });
+    }
 
-    const result = await withTransaction(async (client) => {
+    let result;
+    try {
+        result = await withTransaction(async (client) => {
         const settings = await getSettings(client);
         const quote = await buildQuote(client, lines, { discountCode, settings, lock: true });
         if (quote.problems.length) return { status: 409, body: { error: 'cart_problem', problems: quote.problems } };
@@ -103,11 +111,11 @@ router.post('/', async (req, res) => {
         const { rows } = await client.query(
             `INSERT INTO orders (user_id, customer_email, customer_name, item_count, subtotal, bundle_discount,
                                  discount, discount_code, shipping_fee, total, shipping_address, contact_phone,
-                                 payment_method, payment_status, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+                                 payment_method, payment_status, notes, client_request_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
             [req.user.id, req.user.email, ship.shipping.name || req.user.username, quote.itemCount, quote.subtotal,
                 quote.bundleDiscount, quote.discount, quote.discountCode, quote.shippingFee, quote.total,
-                ship.shipping, ship.phone, online ? 'online' : 'cod', online ? 'awaiting' : 'unpaid', notes],
+                ship.shipping, ship.phone, online ? 'online' : 'cod', online ? 'awaiting' : 'unpaid', notes, requestId],
         );
         const order = rows[0];
         const items = [];
@@ -120,12 +128,21 @@ router.post('/', async (req, res) => {
             );
             items.push(itemRows[0]);
         }
+        await client.query('DELETE FROM carts WHERE user_id = $1', [req.user.id]); // bought: clear the saved cart
         if (req.body?.saveAddress === true) {
             const { name: _name, ...address } = ship.shipping;
             await client.query('UPDATE users SET shipping_address = $2, updated_at = now() WHERE id = $1', [req.user.id, address]);
         }
         return { status: 201, body: { order: toOrderDto(order, items) } };
-    });
+        });
+    } catch (err) {
+        // Two copies of the same retried request raced each other: the other one won, return it.
+        if (err.code === '23505' && requestId) {
+            const [existing] = await loadOrders('WHERE user_id = $1 AND client_request_id = $2', [req.user.id, requestId]);
+            if (existing) return res.status(200).json({ order: existing, duplicate: true });
+        }
+        throw err;
+    }
 
     if (result.status !== 201) return res.status(result.status).json(result.body);
     const order = result.body.order;

@@ -30,8 +30,12 @@ export const config = {
 
     // Public site address used in email links and payment redirects, e.g. https://prdgm.vercel.app
     appUrl: env('APP_URL').replace(/\/+$/, ''),
-    // Accounts with these emails become admin (owner) on deploy and at login.
-    adminEmails: list('ADMIN_EMAILS'),
+    // The owner account(s). Only these emails can ever be admin; everyone else is a member.
+    // Read from ADMIN_EMAILS (ADMIN_EMAIL / ADMIN_URL accepted too), defaulting to the store owner.
+    adminEmails: (list('ADMIN_EMAILS').length ? list('ADMIN_EMAILS')
+        : list('ADMIN_EMAIL').length ? list('ADMIN_EMAIL')
+            : list('ADMIN_URL').filter((e) => e.includes('@')).length ? list('ADMIN_URL').filter((e) => e.includes('@'))
+                : ['pwybrost@addu.edu.ph']),
     // Secret for signing unsubscribe links. Falls back to a value derived from the database URL.
     appSecret: env('APP_SECRET') || createHash('sha256').update(`prdgm:${databaseUrl}`).digest('hex'),
 
@@ -62,6 +66,8 @@ export function baseUrl(req) {
     if (config.appUrl) return config.appUrl;
     return `${req.protocol}://${req.get('host')}`;
 }
+
+export const isOwnerEmail = (email) => config.adminEmails.includes(String(email ?? '').trim().toLowerCase());
 
 export const emailEnabled = () => Boolean(config.resendApiKey && config.emailFrom);
 export const paymentsEnabled = () => Boolean(config.paymongoSecretKey);

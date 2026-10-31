@@ -7,7 +7,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#000000" />
-    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <script>(function(d){var h=d.documentElement,n=navigator;try{if(localStorage.getItem('paradigm_theme')==='light')h.classList.add('light-mode')}catch(e){}var m=null;try{m=localStorage.getItem('paradigm_perf')}catch(e){}if(m==='lite'||(m!=='full'&&((n.hardwareConcurrency||8)<=4||(n.deviceMemory||8)<=4||(n.connection&&n.connection.saveData))))h.classList.add('perf-lite')})(document);</script>
     <link rel="stylesheet" href="css/tailwind.css" />
     <script defer src="analytics.js"></script>
     <style>
@@ -147,6 +147,9 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="styles/light.css" />
+    <link rel="stylesheet" href="styles/perf.css" />
+    <script defer src="pwa.js"></script>
 </head>
 <body>
 
@@ -256,7 +259,7 @@
             }
         }
 
-        document.getElementById('themeToggleBtn').addEventListener('click', () => playSound('click'));
+        document.getElementById('themeToggleBtn').addEventListener('click', () => requestAnimationFrame(() => setTimeout(() => playSound('click'), 0)));
         document.getElementById('togglePass').addEventListener('click', () => playSound('click'));
         document.getElementById('loginLink').addEventListener('click', () => playSound('click'));
 
@@ -487,7 +490,8 @@
         document.addEventListener('click', (e) => { if (!customPhoneSelect.contains(e.target)) { countryDropdown.classList.remove('active'); } });
 
         const themeBtn = document.getElementById('themeToggleBtn');
-        themeBtn.addEventListener('click', () => { document.documentElement.classList.toggle('light-mode'); localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark'); });
+        function fastToggleTheme() { const h = document.documentElement; h.classList.add('theme-switching'); const light = h.classList.toggle('light-mode'); requestAnimationFrame(() => requestAnimationFrame(() => h.classList.remove('theme-switching'))); setTimeout(() => localStorage.setItem('paradigm_theme', light ? 'light' : 'dark'), 0); }
+        themeBtn.addEventListener('click', fastToggleTheme);
 
         document.addEventListener('contextmenu', event => event.preventDefault());
         getCurrentUser().then(u => { if (u) window.location.href = 'index.html'; });

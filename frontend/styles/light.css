@@ -1,0 +1,225 @@
+/* Light mode theme, loaded last on every page.
+   Every rule is scoped to html.light-mode, so dark mode is untouched.
+   Deliberately NOT in a cascade layer: un-layered rules win over the page styles (components layer)
+   and over Tailwind colour utilities like text-[#aaa], which were picked for the dark theme. */
+
+html.light-mode {
+    --l-bg: #f3f4f6;
+    --l-surface: #ffffff;
+    --l-surface-2: #f9fafb;
+    --l-border: #e5e7eb;
+    --l-border-strong: #cbd5e1;
+    --l-text: #0f172a;
+    --l-text-2: #374151;
+    --l-muted: #6b7280;
+    --l-accent: #2563eb;
+    --l-accent-dark: #1d4ed8;
+    --l-accent-soft: #eff6ff;
+    --l-danger: #dc2626;
+    --l-success: #15803d;
+    --l-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
+    --l-shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.10);
+    color-scheme: light;
+}
+
+/* ---------- Page background: soft and bright, same slow zoom ---------- */
+html.light-mode body { background: var(--l-bg); color: var(--l-text); }
+html.light-mode body::after { background: rgba(243, 244, 246, 0.9); }
+html.light-mode body::before { animation-name: glowzoom-light; }
+@keyframes glowzoom-light {
+    0% { transform: scale(1); filter: grayscale(1) brightness(1.15) blur(6px); opacity: 0.45; }
+    100% { transform: scale(1.15); filter: grayscale(1) brightness(1.25) blur(0px); opacity: 0.7; }
+}
+html.light-mode .loader-overlay { background: var(--l-bg); }
+html.light-mode .loader-text { color: var(--l-accent); }
+
+/* ---------- Header ---------- */
+html.light-mode .page-header h1 { color: var(--l-text); text-shadow: none; }
+html.light-mode .page-header h3 { color: var(--l-muted) !important; }
+html.light-mode .header-btn,
+html.light-mode .theme-btn {
+    background: rgba(255, 255, 255, 0.9); color: var(--l-text); border-color: var(--l-border-strong); box-shadow: var(--l-shadow);
+}
+html.light-mode .header-btn:hover,
+html.light-mode .theme-btn:hover { background: var(--l-text); color: #fff; border-color: var(--l-text); box-shadow: var(--l-shadow-lg); }
+html.light-mode .btn-left { color: var(--l-accent-dark); border-color: var(--l-accent); }
+html.light-mode .btn-profile, html.light-mode .btn-login { border-color: var(--l-accent); }
+html.light-mode .menu-avatar-empty { color: var(--l-accent); border-color: var(--l-accent); }
+
+/* ---------- Inputs, buttons, chips ---------- */
+html.light-mode .search-input,
+html.light-mode select.search-input,
+html.light-mode textarea.search-input {
+    background: var(--l-surface); color: var(--l-text); border-color: var(--l-border-strong);
+}
+html.light-mode .search-input::placeholder { color: #9ca3af; }
+html.light-mode .search-input:focus { border-color: var(--l-accent); background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+html.light-mode .search-input:disabled { background: var(--l-surface-2); }
+html.light-mode .sort-select option { background: #fff; color: var(--l-text); }
+
+html.light-mode .btn { background: var(--l-surface); color: var(--l-text); border-color: var(--l-border-strong); }
+html.light-mode .btn:hover { background: var(--l-text); color: #fff; border-color: var(--l-text); }
+html.light-mode .btn-blue { background: var(--l-accent); color: #fff; border-color: var(--l-accent); }
+html.light-mode .btn-blue:hover { background: var(--l-accent-dark); border-color: var(--l-accent-dark); color: #fff; }
+html.light-mode .btn:disabled:hover { background: var(--l-surface); color: var(--l-text); }
+html.light-mode .btn-blue:disabled:hover { background: var(--l-accent); color: #fff; }
+html.light-mode .btn-danger { background: #fef2f2; color: var(--l-danger); border-color: #fca5a5; }
+html.light-mode .btn-danger:hover { background: var(--l-danger); color: #fff; border-color: var(--l-danger); }
+
+html.light-mode .chip,
+html.light-mode .size-chip { background: var(--l-surface); color: var(--l-text-2); border-color: var(--l-border-strong); }
+html.light-mode .chip:hover,
+html.light-mode .size-chip:hover { border-color: var(--l-text); color: var(--l-text); }
+html.light-mode .chip.active,
+html.light-mode .size-chip.active { background: var(--l-accent-soft); color: var(--l-accent-dark); border-color: var(--l-accent); box-shadow: none; }
+
+/* ---------- Product grid ---------- */
+html.light-mode .product-card { background: var(--l-surface); color: var(--l-text); border-color: var(--l-border); box-shadow: var(--l-shadow); }
+html.light-mode .product-card:hover { border-color: var(--l-border-strong); box-shadow: var(--l-shadow-lg); }
+html.light-mode .product-card .price,
+html.light-mode .text-accent { color: var(--l-accent-dark); }
+html.light-mode .was-price { color: #9ca3af; }
+html.light-mode .card-rating, html.light-mode .detail-rating, html.light-mode .review-stars { color: #b45309; }
+html.light-mode .no-matches { color: var(--l-muted); }
+html.light-mode .admin-add-card { background: var(--l-accent-soft) !important; color: var(--l-accent-dark); }
+
+html.light-mode .wish-btn { background: rgba(255, 255, 255, 0.92); color: var(--l-text); border-color: var(--l-border-strong); }
+html.light-mode .wish-btn.is-active { color: var(--l-accent); border-color: var(--l-accent); }
+html.light-mode .badge { background: rgba(255, 255, 255, 0.95); border-color: currentColor; color: var(--l-text-2); }
+html.light-mode .badge-new { color: var(--l-accent-dark); }
+html.light-mode .badge-sale { color: var(--l-danger); }
+html.light-mode .badge-best, html.light-mode .badge-low { color: #b45309; }
+html.light-mode .badge-out { color: var(--l-muted); }
+html.light-mode .badge-limited { color: #7c3aed; }
+html.light-mode .badge-pre { color: #047857; }
+html.light-mode .badge-hidden { background: var(--l-danger); color: #fff; border-color: var(--l-danger); }
+html.light-mode .drop-veil { background: rgba(255, 255, 255, 0.78); color: var(--l-text-2); }
+html.light-mode .drop-veil b { color: var(--l-accent-dark); text-shadow: none; }
+
+html.light-mode .announce { background: var(--l-accent-soft); border-color: #93c5fd; color: var(--l-accent-dark); text-shadow: none; }
+html.light-mode .announce-timer { color: var(--l-text); }
+html.light-mode .strip-label, html.light-mode .section-label, html.light-mode .group-label, html.light-mode .pnl-section { color: var(--l-muted); }
+html.light-mode .strip-label::after, html.light-mode .section-label::after,
+html.light-mode .group-label::after, html.light-mode .pnl-section::after { background: var(--l-border); }
+html.light-mode .mini-card { background: var(--l-surface); color: var(--l-text); border-color: var(--l-border); box-shadow: var(--l-shadow); }
+
+/* ---------- Account box + footer ---------- */
+html.light-mode .wrapper > div.mt-\[60px\] { background: rgba(255, 255, 255, 0.9); border-color: var(--l-border); box-shadow: var(--l-shadow); }
+html.light-mode .btn-disconnect { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
+html.light-mode .btn-disconnect::before { background: var(--l-danger); }
+html.light-mode .btn-disconnect:hover { color: #fff; border-color: var(--l-danger); box-shadow: none; }
+html.light-mode .btn-auth { background: #f0fdf4; color: var(--l-success); border-color: #86efac; }
+html.light-mode .btn-auth::before { background: #16a34a; }
+html.light-mode .btn-auth:hover { color: #fff; border-color: #16a34a; }
+
+html.light-mode .site-footer, html.light-mode .footer { background: rgba(255, 255, 255, 0.85); border-top-color: var(--l-border-strong); box-shadow: none; }
+html.light-mode .footer-title { color: var(--l-text); }
+html.light-mode .footer-links a, html.light-mode .footer-bottom, html.light-mode .footer-about { color: var(--l-text-2); }
+html.light-mode .footer-links a:hover { color: var(--l-accent-dark); text-shadow: none; }
+html.light-mode .footer-social a { color: var(--l-text-2); border-color: var(--l-border-strong); }
+
+/* ---------- Popups ---------- */
+html.light-mode .modal-overlay { background: rgba(15, 23, 42, 0.35); }
+html.light-mode .modal-content { background: var(--l-surface); color: var(--l-text); border-color: var(--l-border); box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25); }
+html.light-mode .modal-close { color: var(--l-muted); }
+html.light-mode .modal-close:hover { color: var(--l-text); }
+html.light-mode .img-zoom-container, html.light-mode .gallery-thumbs img { border-color: var(--l-border); }
+html.light-mode .detail-meta, html.light-mode .opt-label, html.light-mode .stock-note, html.light-mode .guide-note { color: var(--l-muted); }
+html.light-mode .stock-note.is-low { color: #b45309; }
+html.light-mode .stock-note.is-out { color: var(--l-danger); }
+html.light-mode .stock-note.is-pre { color: #047857; }
+html.light-mode .review { border-color: var(--l-border); }
+html.light-mode .review-who { color: var(--l-muted); }
+html.light-mode .review-body { color: var(--l-text-2); }
+html.light-mode .review-form { border-color: var(--l-border-strong); }
+html.light-mode .guide-table th { color: var(--l-muted); border-color: var(--l-border-strong); }
+html.light-mode .guide-table td { border-color: var(--l-border); }
+html.light-mode .checkout-item { border-color: var(--l-border); }
+html.light-mode .qty-btn { background: var(--l-border); color: var(--l-text); }
+html.light-mode .qty-btn:hover { background: var(--l-border-strong); }
+html.light-mode .cart-meta { color: var(--l-muted); }
+html.light-mode .totals-line { color: var(--l-text-2); }
+html.light-mode .ship-progress, html.light-mode .checkout-note { color: var(--l-muted); }
+html.light-mode .ship-bar { background: var(--l-border); }
+html.light-mode .ship-bar i { box-shadow: none; }
+html.light-mode .pay-option { background: var(--l-surface); color: var(--l-text-2); border-color: var(--l-border-strong); }
+html.light-mode .pay-option.active { background: var(--l-accent-soft); color: var(--l-accent-dark); border-color: var(--l-accent); }
+html.light-mode .border-\[\#333\], html.light-mode .border-\[\#222\] { border-color: var(--l-border) !important; }
+
+/* Greys tuned for dark backgrounds -> readable on white */
+html.light-mode .text-\[\#aaa\], html.light-mode .text-\[\#888\] { color: #4b5563 !important; }
+html.light-mode .text-\[\#666\], html.light-mode .text-\[\#444\] { color: var(--l-muted) !important; }
+
+/* Toast + profile menu */
+html.light-mode .prdgm-toast { background: #fff; color: var(--l-accent-dark); border-color: var(--l-accent); box-shadow: var(--l-shadow-lg); }
+html.light-mode .prdgm-toast.is-error { color: var(--l-danger); border-color: var(--l-danger); }
+html.light-mode .user-menu { background: #fff; border-color: var(--l-border); box-shadow: var(--l-shadow-lg); }
+html.light-mode .user-menu-mail { color: var(--l-muted); }
+html.light-mode .role-badge { color: var(--l-text-2); border-color: var(--l-border-strong); }
+html.light-mode .role-badge.is-admin { color: var(--l-accent-dark); border-color: var(--l-accent); box-shadow: none; }
+
+/* ---------- Profile / Orders / Info / Receipt pages ---------- */
+html.light-mode .panel, html.light-mode .order-card, html.light-mode .cust-card, html.light-mode .aorder {
+    background: var(--l-surface); color: var(--l-text); border-color: var(--l-border); box-shadow: var(--l-shadow);
+}
+html.light-mode .panel:hover, html.light-mode .order-card:hover { border-color: var(--l-border-strong); }
+html.light-mode .panel-title { border-color: var(--l-border); }
+html.light-mode .panel-note, html.light-mode .field label, html.light-mode .stat-label, html.light-mode .order-date,
+html.light-mode .id-handle, html.light-mode .order-caret, html.light-mode .lock-tag { color: var(--l-muted); }
+html.light-mode .panel-note.is-warn { color: #b45309; }
+html.light-mode .tabs { border-color: var(--l-border); }
+html.light-mode .tab-btn { color: var(--l-muted); }
+html.light-mode .tab-btn:hover { color: var(--l-text); }
+html.light-mode .tab-btn.active { color: var(--l-accent-dark); border-bottom-color: var(--l-accent); text-shadow: none; }
+html.light-mode .readonly-value { background: var(--l-surface-2); color: var(--l-text); border-color: var(--l-border); }
+html.light-mode .stat { background: var(--l-surface-2); border-color: var(--l-border); }
+html.light-mode .stat-value { color: var(--l-accent-dark); }
+html.light-mode .avatar-frame { background: var(--l-surface-2); box-shadow: 0 0 0 4px var(--l-accent-soft); }
+html.light-mode .id-bio { color: var(--l-text-2); }
+html.light-mode .order-body, html.light-mode .order-line, html.light-mode .aorder-line, html.light-mode .cust-body { border-color: var(--l-border); }
+html.light-mode .order-total { color: var(--l-accent-dark); }
+html.light-mode .tracker-step { color: #9ca3af; }
+html.light-mode .tracker-step::before { background: #fff; border-color: var(--l-border-strong); }
+html.light-mode .tracker-step::after { background: var(--l-border); }
+html.light-mode .tracker-step.done { color: var(--l-accent-dark); }
+html.light-mode .tracker-step.done::before { background: var(--l-accent); border-color: var(--l-accent); box-shadow: none; }
+html.light-mode .tracker-step.done::after { background: var(--l-accent); }
+html.light-mode .info-body h3, html.light-mode .faq-q { color: var(--l-text); }
+html.light-mode .info-body p, html.light-mode .info-body li, html.light-mode .r-text { color: var(--l-text-2); }
+html.light-mode .faq-item { border-color: var(--l-border); }
+
+/* Status badges: darker shades for white backgrounds */
+html.light-mode .status-badge { background: #fff; }
+html.light-mode .status-pending { color: #b45309; border-color: #fcd34d; }
+html.light-mode .status-paid { color: var(--l-accent-dark); border-color: #93c5fd; }
+html.light-mode .status-shipped { color: #6d28d9; border-color: #c4b5fd; }
+html.light-mode .status-completed { color: #047857; border-color: #6ee7b7; }
+html.light-mode .status-cancelled { color: var(--l-danger); border-color: #fca5a5; }
+
+/* ---------- Owner console ---------- */
+html.light-mode .admin-console-inner { background: var(--l-accent-soft); border-color: #93c5fd; }
+html.light-mode .admin-console-label { color: var(--l-accent-dark); text-shadow: none; }
+html.light-mode .admin-edit-btn { background: rgba(255, 255, 255, 0.95); color: var(--l-accent-dark); }
+html.light-mode .admin-edit-btn:hover { background: var(--l-accent); color: #fff; }
+html.light-mode .admin-photo, html.light-mode .admin-thumb { background: var(--l-surface-2); }
+html.light-mode .admin-note, html.light-mode .admin-text, html.light-mode .admin-field label, html.light-mode .admin-margin,
+html.light-mode .cust-mail, html.light-mode .cust-meta, html.light-mode .cust-info, html.light-mode .pnl-stat-label,
+html.light-mode .pnl-bar-label, html.light-mode .pnl-legend, html.light-mode .admin-table th { color: var(--l-muted); }
+html.light-mode .admin-table td { border-color: var(--l-border); }
+html.light-mode .admin-table th { border-color: var(--l-border-strong); }
+html.light-mode .pnl-stat { background: var(--l-surface-2); border-color: var(--l-border); }
+html.light-mode .pnl-stat-value { color: var(--l-accent-dark); }
+html.light-mode .pnl-stat-value.is-neg { color: var(--l-danger); }
+html.light-mode .pnl-stat-value.is-pos { color: #047857; }
+html.light-mode .pnl-chart { border-color: var(--l-border-strong); }
+html.light-mode .pnl-bar.rev { box-shadow: none; }
+html.light-mode .admin-check { color: var(--l-text-2); border-color: var(--l-border); }
+html.light-mode .admin-empty { color: var(--l-muted); }
+
+/* ---------- Login / Signup ---------- */
+html.light-mode .container { background: rgba(255, 255, 255, 0.92); border-color: var(--l-border); box-shadow: var(--l-shadow-lg); }
+html.light-mode .container:hover { border-color: var(--l-border-strong); box-shadow: var(--l-shadow-lg); }
+html.light-mode .title-box { border-color: var(--l-border); }
+html.light-mode .sticker-left, html.light-mode .sticker-right { color: #9ca3af; }
+html.light-mode .modal-card { background: #fff; border-color: var(--l-border); box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25); }
+html.light-mode .country-dropdown { background: #fff; border-color: var(--l-border); color: var(--l-text); }

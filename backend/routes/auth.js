@@ -4,11 +4,10 @@ import { burnPasswordCheck, hashPassword, verifyPassword } from '../lib/password
 import { createSession, destroySession, loadUser, toPublicUser } from '../lib/session.js';
 import { EMAIL_RE, PASSWORD_RE, PHONE_RE, str } from '../lib/validation.js';
 import { allow, clearHits, countHits, ipBucket, keyBucket, recordHit } from '../lib/rateLimit.js';
-import { baseUrl, config, emailEnabled } from '../config.js';
+import { baseUrl, emailEnabled, isOwnerEmail } from '../config.js';
 import { resetEmail, sendEmail, verifyEmail } from '../lib/email.js';
 import { consumeToken, createToken } from '../lib/tokens.js';
 
-const isOwnerEmail = (email) => config.adminEmails.includes(String(email).toLowerCase());
 
 // Sends a verification link (24h). Skipped quietly when email isn't configured.
 export async function sendVerification(req, user) {
@@ -82,9 +81,10 @@ router.post('/login', async (req, res) => {
     }
     await clearHits(keyBucket('authfail', email));
 
-    if (isOwnerEmail(user.email) && user.role !== 'admin') {
-        await query("UPDATE users SET role = 'admin', updated_at = now() WHERE id = $1", [user.id]);
-        user.role = 'admin';
+    const role = isOwnerEmail(user.email) ? 'admin' : 'user';
+    if (user.role !== role) {
+        await query('UPDATE users SET role = $2, updated_at = now() WHERE id = $1', [user.id, role]);
+        user.role = role;
     }
     await createSession(req, res, user.id);
     res.json({ user: toPublicUser(user) });

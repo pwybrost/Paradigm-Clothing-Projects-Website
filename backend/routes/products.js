@@ -8,7 +8,7 @@ const router = Router();
 const REVIEW_MAX = 1000;
 
 const IMAGE_SQL = `
-    SELECT i.mime_type, i.data, i.sha256
+    SELECT i.mime_type, i.data, i.sha256, i.thumb, i.thumb_mime
     FROM product_images i JOIN products p ON p.id = i.product_id
     WHERE p.is_active AND i.product_id = $1`;
 
@@ -21,7 +21,8 @@ function sendImage(req, res, row) {
     const versioned = req.query.v === row.sha256.slice(0, 16);
     res.set({
         'Content-Type': row.mime_type,
-        ETag: `"${row.sha256}"`,
+        ETag: `"${row.sha256}${row.etagSuffix ?? ''}"`,
+        Vary: 'Accept-Encoding',
         'Cache-Control': versioned ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=300',
     });
     res.send(row.data); // answers 304 automatically when If-None-Match matches
@@ -47,7 +48,11 @@ router.get('/:id/image', async (req, res) => {
     if (!id) return res.status(400).json({ error: 'invalid_product' });
     const { rows } = await query(IMAGE_SQL, [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'image_not_found' });
-    sendImage(req, res, rows[0]);
+    const row = rows[0];
+    if (req.query.size === 'card' && row.thumb) {
+        return sendImage(req, res, { mime_type: row.thumb_mime || 'image/webp', data: row.thumb, sha256: row.sha256, etagSuffix: '-card' });
+    }
+    sendImage(req, res, row);
 });
 
 router.get('/:id/gallery/:imageId', async (req, res) => {

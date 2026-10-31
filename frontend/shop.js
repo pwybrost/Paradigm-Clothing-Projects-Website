@@ -1,10 +1,11 @@
 // Archive page (index.html). Guests can browse; login is only needed for checkout, wishlist and reviews.
 import {
     api, getCurrentUser, logout, placeOrder, quoteCart, getWishlist, addToWishlist, removeFromWishlist,
+    getServerCart, syncCart, newRequestId,
 } from './auth.js';
 import {
     mountUserMenu, mountLoginButton, loadCart, saveCart, cartKey, toast, playSound as uiSound, escapeHtml, peso,
-    renderFooter, getStoreSettings,
+    renderFooter, getStoreSettings, toggleTheme,
 } from './ui.js';
 
 // ---------- Settings you may want to edit ----------
@@ -36,11 +37,17 @@ if (user) {
     $('dispUser').textContent = user.username;
     $('dispEmail').textContent = user.email;
     mountUserMenu(user, { current: 'archive' });
+    // Signed in: the green button switches to another profile (signs out, then opens the login page).
+    $('loginBtn').textContent = 'SWITCH PROFILE';
+    $('loginBtn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+        window.location.href = 'Login.html?next=index.html';
+    });
 } else {
     $('dispUser').textContent = 'GUEST';
     $('dispEmail').textContent = 'Log in to check out, save a wishlist and track your orders.';
     $('logoutBtn').hidden = true;
-    $('loginBtn').hidden = false;
     $('loginBtn').href = 'Login.html?next=index.html';
     mountLoginButton('index.html');
 }
@@ -88,13 +95,17 @@ const priceHtml = (p) => `₱${p.price.toLocaleString()}${p.compareAtPrice ? `<s
 const starText = (r) => '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r));
 
 // ---------- Loading ----------
+// Waits for the first screenful of card images only (the rest load lazily as you scroll),
+// and never longer than 4 seconds, so slow phones/networks still get in quickly.
 function preloadImages(products) {
-    return Promise.all(products.map((p) => new Promise((resolve) => {
+    const first = products.slice(0, 10).map((p) => new Promise((resolve) => {
         const img = new Image();
+        img.decoding = 'async';
         img.onload = resolve;
         img.onerror = resolve;
-        img.src = p.image || PLACEHOLDER_CARD;
-    })));
+        img.src = p.thumb || p.image || PLACEHOLDER_CARD;
+    }));
+    return Promise.race([Promise.all(first), new Promise((r) => setTimeout(r, 4000))]);
 }
 
 async function fetchProducts() {
@@ -147,7 +158,8 @@ async function init() {
         }
         renderCategoryChips();
         applyFilters();
-        restoreCart();
+        restoreCart({ silent: true });
+        pullServerCart();
         renderRecent();
     }
 
@@ -223,7 +235,9 @@ window.applyFilters = () => {
     // Stable sort keeps the owner's "featured" order for ties.
     renderGrid(filtered.map((p, i) => [p, i]).sort((a, b) => SORTS[sortMode](a[0], b[0]) || a[1] - b[1]).map(([p]) => p));
 };
-$('archiveSearch').addEventListener('input', applyFilters);
+// Re-render after typing pauses, not on every keystroke (keeps typing smooth on slow phones).
+let searchTimer;
+$('archiveSearch').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(applyFilters, 150); });
 
 // ---------- Grid ----------
 function cardButton(p) {
@@ -249,7 +263,7 @@ function renderGrid(productsToDisplay) {
             ${isAdmin ? `<button class="admin-edit-btn" title="Edit item" onclick="event.stopPropagation(); adminEdit(${p.id})">✎ EDIT</button>` : ''}
             ${adminApi?.cardExtras?.(p) ?? ''}
             <button class="wish-btn${wishlistIds.has(p.id) ? ' is-active' : ''}" data-wish="${p.id}" title="Wishlist" onclick="event.stopPropagation(); toggleWishlist(${p.id})">${wishlistIds.has(p.id) ? '♥' : '♡'}</button>
-            <img src="${escapeHtml(p.image || PLACEHOLDER_CARD)}" alt="${escapeHtml(p.title)}" loading="lazy" onerror="this.onerror=null; this.src='${PLACEHOLDER_CARD}'">
+            <img src="${escapeHtml(p.thumb || p.image || PLACEHOLDER_CARD)}" alt="${escapeHtml(p.title)}" loading="lazy" decoding="async" width="520" height="520" onerror="this.onerror=null; this.src='${PLACEHOLDER_CARD}'">
             ${!isReleased(p) ? `<div class="drop-veil">Drops In<b data-countdown="${escapeHtml(p.releaseAt)}"></b></div>` : ''}
             <div class="badge-stack">${badgesFor(p)}</div>
             <h4>${escapeHtml(p.title)}</h4>
@@ -276,7 +290,10 @@ window.quickAdd = (id) => {
 // ---------- Countdowns (drops + announcement) ----------
 let releasedSinceRender = false;
 function tickCountdowns() {
-    document.querySelectorAll('[data-countdown]').forEach((el) => {
+    if (document.hidden) return;
+    const timers = document.querySelectorAll('[data-countdown]');
+    if (!timers.length) return;
+    timers.forEach((el) => {
         const ms = new Date(el.dataset.countdown).getTime() - now();
         el.textContent = fmtCountdown(ms);
         if (ms <= 0 && el.closest('.product-card')) releasedSinceRender = true;
@@ -324,7 +341,7 @@ function rememberViewed(id) {
 }
 const miniCard = (p) => `
     <div class="mini-card" onclick="openProduct(${p.id})">
-        <img src="${escapeHtml(p.image || PLACEHOLDER_CARD)}" alt="" loading="lazy">
+        <img src="${escapeHtml(p.thumb || p.image || PLACEHOLDER_CARD)}" alt="" loading="lazy" decoding="async">
         <span>${escapeHtml(p.title)}</span><b>₱${p.price.toLocaleString()}</b>
     </div>`;
 function renderRecent() {
@@ -618,7 +635,34 @@ function addVariantToCart(p, color, size) {
 }
 
 // Restore the saved cart, dropping removed items and refreshing names/prices from the API.
-function restoreCart() {
+// Picks the newer of this device's cart and the account's saved cart (last write wins).
+async function pullServerCart() {
+    if (!user) return;
+    const { ok, data } = await getServerCart();
+    if (!ok || !data.updatedAt) { pushCartSoon(); return; }
+    const localTs = Number(localStorage.getItem('paradigm_cart_ts') || 0);
+    const serverTs = new Date(data.updatedAt).getTime();
+    if (serverTs > localTs) {
+        const byId = new Map(allProducts.map((p) => [p.id, p]));
+        const items = data.items.flatMap((i) => (byId.get(i.id) ? [{ ...i, name: byId.get(i.id).title, price: byId.get(i.id).price }] : []));
+        saveCart(items, { touch: false });
+        localStorage.setItem('paradigm_cart_ts', String(serverTs));
+        restoreCart({ silent: true });
+    } else if (localTs > serverTs) {
+        pushCartSoon();
+    }
+}
+let pushTimer;
+function pushCartSoon() {
+    if (!user) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => syncCart(cart, Number(localStorage.getItem('paradigm_cart_ts') || Date.now())), 800);
+}
+// Another tab changed the cart: show the same cart here.
+window.addEventListener('storage', (e) => { if (e.key === 'paradigm_cart' && allProducts.length) restoreCart({ silent: true }); });
+window.addEventListener('prdgm:cart-restored', () => restoreCart({ silent: true }));
+
+function restoreCart({ silent = false } = {}) {
     cart = loadCart().flatMap((i) => {
         const p = allProducts.find((x) => x.id === i.id);
         return p && findVariant(p, i.color, i.size)
@@ -627,7 +671,7 @@ function restoreCart() {
     });
     const code = sessionStorage.getItem(CODE_KEY);
     if (code) $('discountInput').value = code;
-    updateCartUI();
+    updateCartUI({ fromStorage: silent });
 }
 
 function changeQty(item, delta) {
@@ -654,8 +698,8 @@ $('cart-items-list').addEventListener('click', (e) => {
 });
 
 let quoteTimer;
-function updateCartUI() {
-    saveCart(cart);
+function updateCartUI({ fromStorage = false } = {}) {
+    if (!fromStorage) { saveCart(cart); pushCartSoon(); } else saveCart(cart, { touch: false });
     const count = cart.reduce((sum, i) => sum + i.quantity, 0);
     $('checkoutTrigger').textContent = `Execute Order (${count})`;
     renderCartList();
@@ -835,6 +879,7 @@ const CHECKOUT_ERRORS = {
     payment_unavailable: 'ERROR: PAYMENT PAGE UNAVAILABLE. ORDER RELEASED · RETRY OR USE CASH ON DELIVERY.',
 };
 
+let checkoutRequestId = null;
 window.processCheckout = async () => {
     const btn = $('confirmCheckoutBtn');
     if (cart.length === 0 || !user || btn.disabled) return;
@@ -850,6 +895,8 @@ window.processCheckout = async () => {
     }
     btn.disabled = true;
     status.innerHTML = 'COMMENCING ENCRYPTED UPLOAD...';
+    // One id per checkout attempt: if the connection drops and the order is resent, it can't be placed twice.
+    checkoutRequestId ??= newRequestId();
 
     // Keep the original upload animation timing (at least 2s).
     const [result] = await Promise.all([
@@ -860,10 +907,23 @@ window.processCheckout = async () => {
             discountCode: $('discountInput').value.trim(),
             saveAddress: $('saveAddress').checked,
             paymentMethod: payMethod,
-        }),
+            requestId: checkoutRequestId,
+        }, cart.map((i) => ({ ...i }))),
         new Promise((resolve) => setTimeout(resolve, 2000)),
     ]);
     btn.disabled = false;
+
+    if (result.queued) {
+        // Server or network is down: the order is saved on this device and sent automatically.
+        playSound('success');
+        status.innerHTML = "<span class='text-accent'>CONNECTION LOST · ORDER SAVED ON THIS DEVICE.<br>IT WILL BE SENT AUTOMATICALLY WHEN YOU'RE BACK ONLINE.</span>";
+        cart = [];
+        checkoutRequestId = null;
+        updateCartUI();
+        setTimeout(() => { closeModal('checkoutModal'); showStep('cart'); }, 4000);
+        return;
+    }
+    if (result.success) checkoutRequestId = null;
 
     if (result.success && result.data?.checkoutUrl) {
         // Online payment: cart is cleared now; the order is held for 2 hours while the customer pays.
@@ -901,11 +961,7 @@ window.processCheckout = async () => {
 $('confirmCheckoutBtn').addEventListener('click', () => processCheckout());
 
 // ---------- Misc ----------
-$('themeToggleBtn').addEventListener('click', () => {
-    playSound();
-    document.documentElement.classList.toggle('light-mode');
-    localStorage.setItem('paradigm_theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark');
-});
+$('themeToggleBtn').addEventListener('click', () => { toggleTheme(); playSound(); });
 $('logoutBtn').addEventListener('click', () => logout());
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

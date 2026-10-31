@@ -13,6 +13,7 @@ import adminRouter from './routes/admin/index.js';
 import storeRouter from './routes/store.js';
 import paymentsRouter from './routes/payments.js';
 import seoRouter from './routes/seo.js';
+import cartRouter from './routes/cart.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -89,6 +90,7 @@ app.use('/api/profile', profileRouter);
 app.use('/api/wishlist', wishlistRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/store', storeRouter);
+app.use('/api/cart', cartRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 

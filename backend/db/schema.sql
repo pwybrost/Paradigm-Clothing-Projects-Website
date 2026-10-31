@@ -323,3 +323,17 @@ CREATE TABLE IF NOT EXISTS payment_events (
 );
 -- When the current online payment attempt started (unpaid orders expire relative to this).
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_started_at TIMESTAMPTZ;
+
+-- ---------- Performance: small card thumbnails (the full photo is still used for the zoom view) ----------
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS thumb      BYTEA;
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS thumb_mime TEXT;
+
+-- ---------- Sync: cart saved per account (works across devices) + safe retries ----------
+CREATE TABLE IF NOT EXISTS carts (
+    user_id    UUID        PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    items      JSONB       NOT NULL DEFAULT '[]',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- An order sent again after a network drop (same request id) returns the first order instead of duplicating it.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_request_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS orders_client_request_idx ON orders (user_id, client_request_id) WHERE client_request_id IS NOT NULL;

@@ -32,7 +32,7 @@
 
     /* --- Card badges, sale price, rating, drop countdown --- */
     .badge-stack { position: absolute; left: 22px; top: 167px; display: flex; gap: 4px; flex-wrap: wrap; z-index: 2; pointer-events: none; }
-    .badge { font-family: monospace; font-size: 8px; letter-spacing: 2px; padding: 3px 6px; background: rgba(0,0,0,0.75); border: 1px solid #fff; color: #fff; text-transform: uppercase; backdrop-filter: blur(4px); }
+    .badge { font-family: monospace; font-size: 8px; letter-spacing: 2px; padding: 3px 6px; background: rgba(0,0,0,0.75); border: 1px solid #fff; color: #fff; text-transform: uppercase; }
     .badge-new { border-color: #3b82f6; color: #3b82f6; }
     .badge-sale { border-color: #ff4d4d; color: #ff4d4d; }
     .badge-best { border-color: #e0a84a; color: #e0a84a; }
@@ -126,12 +126,20 @@
     .step-actions { display: flex; gap: 10px; }
     .guest-gate { text-align: center; font-family: monospace; font-size: 10px; letter-spacing: 2px; color: #aaa; text-transform: uppercase; line-height: 1.8; }
 
+    /* --- Account box buttons: green authenticate (left) + red disconnect (right), side by side --- */
+    [hidden] { display: none !important; }
+    .account-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    a.btn-disconnect { text-decoration: none; display: inline-block; }
+    .btn-auth { background: rgba(0, 100, 0, 0.12); border-color: #15803d; color: #4ade80; }
+    .btn-auth::before { background: #15803d; }
+    .btn-auth:hover { color: #fff; border-color: #4ade80; box-shadow: 0 0 15px rgba(74, 222, 128, 0.55); }
+
     /* --- Guest login button (in the header, where the profile button goes) --- */
     a.header-btn { text-decoration: none; display: inline-block; }
     .btn-login { border-color: rgba(59, 130, 246, 0.6); }
 
     /* --- Footer --- */
-    .site-footer { border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); padding: 40px 20px 30px; position: relative; z-index: 10; margin-top: 40px; }
+    .site-footer { border-top: 1px solid rgba(255,255,255,0.28); box-shadow: 0 -1px 18px rgba(59,130,246,0.08); background: rgba(0,0,0,0.5); padding: 40px 20px 30px; position: relative; z-index: 10; margin-top: 40px; }
     .footer-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 1fr 1.3fr; gap: 30px; }
     .footer-title { font-family: monospace; font-size: 10px; letter-spacing: 4px; color: #fff; text-transform: uppercase; margin-bottom: 14px; }
     .footer-links a { display: block; color: #888; text-decoration: none; font-family: monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 9px; transition: color 0.2s; }

@@ -23,7 +23,7 @@ backend/lib/              password hashing (scrypt), sessions
 backend/db/schema.sql     All tables (idempotent)
 backend/data/products.js  Seed catalogue
 backend/data/images/      The original t-shirt photos (never modified by any script)
-backend/scripts/          migrate, seed, promote-admin
+backend/scripts/          migrate, seed
 api/index.js              Vercel Function entry
 vercel.json               Build command, output dir, /api rewrite
 ```
@@ -46,9 +46,9 @@ The database URL comes from the Neon integration's `DATABASE_URL` (or `POSTGRES_
 
 ## Owner (admin) account
 
-1. Sign up on the site with your owner email.
-2. Locally, with `.env` set: `npm run admin:promote -- you@example.com`
-3. Log out and back in. (`-- you@example.com --demote` reverts it.)
+The owner is `pwybrost@addu.edu.ph`, or whatever is listed in `ADMIN_EMAILS` in Vercel (comma separated).
+On every deploy and every login, accounts on that list become admin and every other account becomes a member.
+To change the owner, edit `ADMIN_EMAILS` and redeploy.
 
 ## API
 
@@ -123,3 +123,23 @@ Open `/api/health` on any deployment. It reports, without secrets:
 
 If the archive shows "ARCHIVE OFFLINE", the same reason is printed under the message.
 If a fresh database is missing tables or photos, the API creates them on the first request.
+
+## Offline & sync
+
+- `frontend/sw.js` (service worker) keeps the pages, catalogue, photos and your account data, so the shop still opens offline or during an outage.
+- Actions taken while offline are stored on the device and sent automatically when the connection returns:
+  wishlist, profile edits, newsletter, contact messages, cart and orders.
+- Orders carry a request id, so a resent order can never be placed twice.
+- Logged-in carts are saved to the `carts` table and follow the account across devices and tabs.
+
+## Performance
+
+- `frontend/styles/perf.css` gives the animated background its own GPU layer and skips rendering off-screen cards.
+- The grid uses ~520px thumbnails (`product_images.thumb`). The full photo is only loaded for the zoom view.
+- Low-end devices (4 or fewer CPU cores, 4 GB or less RAM, data saver) or reduced-motion users get a still background.
+  Run `localStorage.paradigm_perf = 'full'` (or `'lite'`) in the browser console to override.
+
+## Docker (optional)
+
+`docker compose up --build` runs the shop with its own local PostgreSQL at http://localhost:3000, without touching Neon.
+Vercel doesn't use Docker.
