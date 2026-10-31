@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Archive | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Paradigm Clothing Projects: graphic tees, collabs and limited drops from the Spring/Summer 2026 archive. Shop online with cash on delivery across the Philippines." />
+    <link rel="canonical" href="https://prdgm.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Paradigm Clothing Projects" />
+    <meta property="og:title" content="Paradigm | Spring/Summer 2026 Archive" />
+    <meta property="og:description" content="Graphic tees, collabs and limited drops. Shop the Paradigm archive." />
+    <meta property="og:url" content="https://prdgm.vercel.app/" />
+    <meta property="og:image" content="https://prdgm.vercel.app/api/products/901/image" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script defer src="analytics.js"></script>
+    <script>(function(d){var h=d.documentElement,n=navigator;try{if(localStorage.getItem('paradigm_theme')==='light')h.classList.add('light-mode')}catch(e){}var m=null;try{m=localStorage.getItem('paradigm_perf')}catch(e){}if(m==='lite'||(m!=='full'&&((n.hardwareConcurrency||8)<=4||(n.deviceMemory||8)<=4||(n.connection&&n.connection.saveData))))h.classList.add('perf-lite')})(document);</script>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/menu.css" />
+    <style>
+        /* Page styles live in the components layer so Tailwind utilities can override them. */
+        @layer components {
+            /* --- CORE STYLES --- */
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { min-height: 100vh; display: flex; flex-direction: column; font-family: 'Helvetica Neue', Arial, sans-serif; color: #fff; overflow-x: hidden; background: #000; user-select: none; -webkit-user-select: none; }
+            body::before { 
+                content: ""; position: fixed; top: -10%; left: -10%; width: 120vw; height: 120vh; 
+                background-image: url('https://img.freepik.com/free-photo/grayscale-futuristic-abstract-background-with-light-effects_181624-16494.jpg');
+                background-size: cover; background-position: center; z-index: -2;
+                animation: glowzoom 12s infinite alternate ease-in-out;
+            }
+            body::after { content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: -1; transition: background 0.5s; }
+            @keyframes glowzoom { 0% { transform: scale(1); filter: brightness(0.3) saturate(1) blur(6px); opacity: 0.5; } 100% { transform: scale(1.15); filter: brightness(1.5) saturate(2.5) blur(0px); opacity: 1; } }
+
+            /* --- HEADER & NAVIGATION --- */
+            .header-btn { position: fixed; top: 20px; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 12px 20px; font-size: 10px; font-weight: bold; font-family: monospace; letter-spacing: 2px; cursor: pointer; backdrop-filter: blur(5px); z-index: 1000; transition: all 0.3s ease; text-transform: uppercase; }
+            .header-btn:hover { background: #fff; color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
+            .btn-left { left: 20px; border-color: #3b82f6; color: #3b82f6; }
+            .btn-right { right: 20px; }
+
+            .page-header { padding: 50px 0 20px 0; text-align: center; text-transform: uppercase; }
+            .page-header h1 { font-size: 45px; font-weight: 300; letter-spacing: 12px; margin-bottom: 5px; }
+
+            /* --- SEARCH & FILTER SECTION --- */
+            .filter-wrapper { max-width: 800px; margin: 0 auto 40px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+            .search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(59, 130, 246, 0.3); padding: 15px; color: #fff; font-family: monospace; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; outline: none; transition: 0.3s; text-align: center; }
+            .search-input:focus { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+            .price-filters { display: flex; gap: 10px; justify-content: center; }
+            .price-filters input { width: 40%; }
+
+            /* --- PRODUCT GRID --- */
+            .wrapper { flex-grow: 1; max-width: 1600px; margin: 0 auto; padding: 0 20px 40px 20px; position: relative; z-index: 10; width: 100%; }
+            .product-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; min-height: 200px; }
+            .product-card { background: rgba(10,10,10,0.85); border: 1px solid rgba(255,255,255,0.1); padding: 15px; transition: 0.3s; cursor: pointer; }
+            .product-card:hover { border-color: rgba(255,255,255,0.5); transform: translateY(-3px); }
+            .product-card img { width: 100%; height: 180px; object-fit: cover; margin-bottom: 12px; }
+            .product-card h4 { font-size: 10px; letter-spacing: 1px; height: 25px; overflow: hidden; margin-bottom: 5px; }
+            .product-card .price { color: #3b82f6; font-family: monospace; margin-bottom: 10px; }
+
+            /* --- NO MATCH STATE --- */
+            .no-matches { grid-column: 1 / -1; text-align: center; padding: 100px 0; font-family: monospace; color: #666; letter-spacing: 5px; text-transform: uppercase; }
+
+            /* --- MODALS --- */
+            .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+            .modal-overlay.active { display: flex; }
+            .modal-content { background: #080808; border: 1px solid #333; padding: 40px; width: 100%; max-width: 800px; position: relative; animation: modal-zoom 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 50px rgba(0,0,0,1); }
+            @keyframes modal-zoom { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+            .modal-close { position: absolute; top: 20px; right: 20px; color: #666; cursor: pointer; font-family: monospace; font-size: 14px; }
+            .modal-close:hover { color: #fff; }
+
+            .product-detail-flex { display: flex; gap: 30px; }
+            .detail-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+
+            .btn { background: #000; color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 12px; cursor: pointer; text-transform: uppercase; font-size: 10px; letter-spacing: 2px; transition: 0.3s; width: 100%; }
+            .btn:hover { background: #fff; color: #000; }
+            .btn-blue { background: #3b82f6; border-color: #3b82f6; }
+            .checkout-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #222; font-size: 11px; }
+        
+            .qty-btn { background: #333; color: #fff; border: none; padding: 2px 8px; cursor: pointer; font-family: monospace; border-radius: 2px; }
+            .qty-btn:hover { background: #555; }
+            .remove-btn { background: none; border: 1px solid #ff4d4d; color: #ff4d4d; padding: 2px 6px; cursor: pointer; font-family: monospace; font-size: 10px; margin-left: 10px; }
+            .remove-btn:hover { background: #ff4d4d; color: #000; }
+
+            /* --- IMAGE ZOOM MAGNIFIER --- */
+            .img-zoom-container { 
+                width: 45%; 
+                height: 400px; 
+                overflow: hidden; 
+                position: relative; 
+                cursor: zoom-in; 
+                border: 1px solid #222; 
+            }
+            .img-zoom-container img { 
+                width: 100%; 
+                height: 100%; 
+                object-fit: cover; 
+                transition: transform 0.15s ease-out; 
+                transform-origin: center center; 
+            }
+
+            /* --- DISCONNECT BUTTON ANIMATION --- */
+            .btn-disconnect { 
+                background: rgba(139, 0, 0, 0.1); 
+                border: 1px solid #8b0000; 
+                color: #ff4d4d; 
+                padding: 8px 20px; 
+                cursor: pointer; 
+                font-size: 10px; 
+                font-family: monospace; 
+                letter-spacing: 2px; 
+                transition: all 0.3s ease; 
+                position: relative; 
+                overflow: hidden; 
+                z-index: 1;
+            }
+            .btn-disconnect::before { 
+                content: ""; 
+                position: absolute; 
+                top: 0; left: -100%; 
+                width: 100%; height: 100%; 
+                background: #8b0000; 
+                transition: all 0.3s ease; 
+                z-index: -1; 
+            }
+            .btn-disconnect:hover::before { left: 0; }
+            .btn-disconnect:hover { 
+                color: #fff; 
+                box-shadow: 0 0 15px rgba(255, 77, 77, 0.6); 
+                border-color: #ff4d4d; 
+            }
+
+            /* --- SMOOTH LOADING OVERLAY & ANIMATIONS --- */
+            .loader-overlay {
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: #000; z-index: 9999; display: flex; flex-direction: column;
+                justify-content: center; align-items: center; transition: opacity 0.8s ease;
+            }
+            .loader-text {
+                font-family: monospace; font-size: 14px; color: #3b82f6; letter-spacing: 8px;
+                animation: pulse-text 1.5s infinite alternate; text-transform: uppercase;
+            }
+            @keyframes pulse-text { from { opacity: 0.4; text-shadow: 0 0 0px #3b82f6; } to { opacity: 1; text-shadow: 0 0 15px #3b82f6; } }
+        
+            /* Utility classes for Javascript to toggle */
+            .fade-out { opacity: 0; pointer-events: none; }
+            .grid-enter { animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }
+            @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
+
+            /* --- LIGHT MODE --- */
+            html.light-mode body::after { background: rgba(255,255,255,0.7); }
+            html.light-mode .modal-content, html.light-mode .product-card { background: #fff; color: #000; border-color: #ccc; }
+            html.light-mode .loader-overlay { background: #fff; } /* Match loader to light mode if enabled */
+        }
+    </style>
+    <!-- After the page styles so the phone/tablet rules can adapt them (desktop is unchanged). -->
+    <link rel="stylesheet" href="styles/shop.css" />
+    <link rel="stylesheet" href="styles/light.css" />
+    <link rel="stylesheet" href="styles/perf.css" />
+    <script defer src="pwa.js"></script>
+</head>
+<body>
+
+    <div id="loaderScreen" class="loader-overlay">
+        <div class="loader-text">Initializing Archive Data...</div>
+    </div>
+
+    <button class="header-btn btn-left" id="checkoutTrigger">Execute Order (0)</button>
+    <div class="header-actions" id="headerActions">
+        <button class="header-btn btn-right" id="themeToggleBtn">🌓 Theme</button>
+    </div>
+
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3 class="text-[10px] tracking-[5px] text-[#666]">Spring/Summer 2026 Archive</h3>
+    </div>
+
+    <div class="announce" id="announceBar" hidden><span id="announceText"></span><span class="announce-timer" id="announceTimer"></span></div>
+
+    <div class="filter-wrapper">
+        <input type="text" id="archiveSearch" class="search-input" placeholder="Initiate Keyword Search...">
+        <div class="price-filters">
+            <input type="number" id="minPrice" class="search-input" placeholder="MIN PRICE (₱)">
+            <input type="number" id="maxPrice" class="search-input" placeholder="MAX PRICE (₱)">
+            <button class="btn btn-blue w-[20%]" onclick="applyFilters()">FILTER</button>
+        </div>
+        <div class="shop-controls">
+            <div class="chip-row" id="categoryChips"></div>
+            <select class="search-input sort-select" id="sortSelect" aria-label="Sort items">
+                <option value="featured">Sort: Featured</option>
+                <option value="newest">Sort: Newest</option>
+                <option value="price-asc">Sort: Price ▲</option>
+                <option value="price-desc">Sort: Price ▼</option>
+                <option value="best">Sort: Best Sellers</option>
+                <option value="rating">Sort: Top Rated</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="wrapper">
+        <section class="recent-strip" id="recentStrip" hidden>
+            <div class="strip-label">Recently Viewed</div>
+            <div class="mini-row" id="recentRow"></div>
+        </section>
+
+        <main id="product-list" class="product-grid"></main>
+
+        <div class="mt-[60px] p-10 border border-[#222] bg-black/50">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-[12px] tracking-[4px] mb-2.5">AUTHORIZED USER: <span id="dispUser" class="text-accent">...</span></h2>
+                    <p class="text-[10px] text-[#666]" id="dispEmail">...</p>
+                </div>
+                <div class="account-actions">
+                    <a id="loginBtn" class="btn-disconnect btn-auth" href="Login.html">AUTHENTICATE</a>
+                    <button id="logoutBtn" class="btn-disconnect">DISCONNECT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="productModal"><div class="modal-content product-modal"><span class="modal-close" onclick="closeModal('productModal')">[ CLOSE ]</span><div id="productDetailContent"></div></div></div>
+    
+    <div class="modal-overlay" id="checkoutModal">
+        <div class="modal-content max-w-[600px] checkout-modal">
+            <span class="modal-close" onclick="closeModal('checkoutModal')">[ CLOSE ]</span>
+            <h2 class="text-[14px] tracking-[5px] mb-[25px] text-center" id="checkoutTitle">MANIFEST</h2>
+
+            <!-- Step 1: cart -->
+            <div id="stepCart">
+                <div id="cart-items-list" class="max-h-[300px] overflow-y-auto mb-5 pr-2.5"></div>
+                <div class="border-t border-[#333] pt-5">
+                    <div class="code-row">
+                        <input class="search-input" id="discountInput" placeholder="DISCOUNT CODE" maxlength="40" autocomplete="off" />
+                        <button class="btn" id="applyCodeBtn">Apply</button>
+                    </div>
+                    <p class="checkout-note" id="codeNote"></p>
+                    <div class="ship-progress" id="shipProgress"></div>
+                    <div class="totals-line"><span>SUBTOTAL</span><span id="sumSubtotal">₱0.00</span></div>
+                    <div class="totals-line is-discount" id="sumBundleRow" hidden><span id="sumBundleLabel">BUNDLE DEAL</span><span id="sumBundle"></span></div>
+                    <div class="totals-line is-discount" id="sumDiscountRow" hidden><span id="sumDiscountLabel">DISCOUNT</span><span id="sumDiscount"></span></div>
+                    <div class="totals-line"><span>SHIPPING</span><span id="sumShipping">₱0.00</span></div>
+                    <div class="flex justify-between mb-5 font-mono"><span>TOTAL VALUATION:</span> <span class="text-accent">₱<span id="total-price">0.00</span></span></div>
+                    <button class="btn btn-blue" id="toShippingBtn">Proceed to Shipping ►</button>
+                </div>
+            </div>
+
+            <!-- Step 2: shipping + payment -->
+            <div id="stepShip" hidden>
+                <div class="ship-form">
+                    <div class="full"><label for="shipName">Full Name</label><input class="search-input" id="shipName" maxlength="80" autocomplete="name" /></div>
+                    <div class="full"><label for="shipPhone">Contact Number</label><input class="search-input" id="shipPhone" maxlength="25" autocomplete="tel" placeholder="+63 9123456789" /></div>
+                    <div class="full"><label for="shipLine1">Address Line 1</label><input class="search-input" id="shipLine1" maxlength="120" autocomplete="address-line1" placeholder="House no., street, barangay" /></div>
+                    <div class="full"><label for="shipLine2">Address Line 2 (optional)</label><input class="search-input" id="shipLine2" maxlength="120" autocomplete="address-line2" /></div>
+                    <div><label for="shipCity">City / Municipality</label><input class="search-input" id="shipCity" maxlength="60" autocomplete="address-level2" /></div>
+                    <div><label for="shipProvince">Province / Region</label><input class="search-input" id="shipProvince" maxlength="60" autocomplete="address-level1" /></div>
+                    <div><label for="shipPostal">Postal Code</label><input class="search-input" id="shipPostal" maxlength="12" autocomplete="postal-code" /></div>
+                    <div><label for="shipCountry">Country</label><input class="search-input" id="shipCountry" maxlength="60" autocomplete="country-name" value="Philippines" /></div>
+                    <div class="full"><label for="shipNotes">Delivery Notes (optional)</label><textarea class="search-input" id="shipNotes" maxlength="500" placeholder="Landmarks, preferred time..."></textarea></div>
+                    <label class="check-line full"><input type="checkbox" id="saveAddress" checked /> Save this address to my profile</label>
+                </div>
+                <div id="payOptions"></div>
+                <div class="flex justify-between mb-5 font-mono"><span>AMOUNT DUE:</span> <span class="text-accent" id="dueTotal">₱0.00</span></div>
+                <div class="step-actions">
+                    <button class="btn" id="backToCartBtn">◄ Back</button>
+                    <button class="btn btn-blue" id="confirmCheckoutBtn">Finalize Transmission</button>
+                </div>
+            </div>
+            <p id="status-msg" class="text-center text-[10px] mt-[15px] font-mono text-[#888]"></p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="sizeGuideModal">
+        <div class="modal-content max-w-[560px]">
+            <span class="modal-close" onclick="closeModal('sizeGuideModal')">[ CLOSE ]</span>
+            <h2 class="text-[14px] tracking-[5px] mb-[25px] text-center">SIZE GUIDE</h2>
+            <div id="sizeGuideBody"></div>
+        </div>
+    </div>
+
+    <footer class="site-footer" id="siteFooter"></footer>
+
+    <script type="module" src="shop.js"></script>
+</body>
+</html>

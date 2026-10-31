@@ -1,0 +1,29 @@
+# Optional local setup with its own PostgreSQL, so you can test without touching your Neon data:
+#   docker compose up --build      then open http://localhost:3000
+# Stop with Ctrl+C. Data is kept in the "pgdata" volume (docker compose down -v deletes it).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: paradigm
+      POSTGRES_PASSWORD: paradigm
+      POSTGRES_DB: paradigm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paradigm"]
+      interval: 3s
+      retries: 20
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://paradigm:paradigm@db:5432/paradigm
+      ADMIN_EMAILS: pwybrost@addu.edu.ph
+      APP_URL: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  pgdata:
