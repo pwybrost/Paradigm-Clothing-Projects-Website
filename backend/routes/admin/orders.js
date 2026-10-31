@@ -4,6 +4,9 @@ import { query, withTransaction } from '../../db.js';
 import { releaseOrder } from '../../lib/pricing.js';
 import { str } from '../../lib/validation.js';
 import { toOrderDto } from '../orders.js';
+import { baseUrl } from '../../config.js';
+import { emailOrderStatus, loadOrder } from '../../lib/orders.js';
+import { returnUpdateEmail, sendEmail } from '../../lib/email.js';
 
 const router = Router();
 const STATUSES = ['pending', 'paid', 'shipped', 'completed', 'cancelled'];
@@ -54,23 +57,35 @@ router.patch('/:id', async (req, res) => {
     const courier = req.body?.courier === undefined ? null : str(req.body.courier).slice(0, 60);
     const tracking = req.body?.trackingNumber === undefined ? null : str(req.body.trackingNumber).slice(0, 80);
 
+    let changedStatus = null;
+    let trackingAdded = false;
     const outcome = await withTransaction(async (client) => {
-        const { rows } = await client.query('SELECT status FROM orders WHERE id = $1 FOR UPDATE', [req.params.id]);
+        const { rows } = await client.query('SELECT status, payment_method, tracking_number FROM orders WHERE id = $1 FOR UPDATE', [req.params.id]);
         if (!rows[0]) return { status: 404, body: { error: 'order_not_found' } };
         const current = rows[0].status;
+        changedStatus = status && status !== current ? status : null;
+        trackingAdded = tracking !== null && tracking !== rows[0].tracking_number && tracking !== '';
         if (status && status !== current) {
             if (current === 'cancelled') return { status: 409, body: { error: 'order_cancelled' } };
             if (status === 'cancelled') await releaseOrder(client, req.params.id);
         }
+        // Cash on delivery is collected when the courier delivers (or when the owner marks it paid).
+        const codCollected = rows[0].payment_method === 'cod' && ['paid', 'completed'].includes(status);
         await client.query(
             `UPDATE orders SET status = coalesce($2, status), courier = coalesce($3, courier),
-                    tracking_number = coalesce($4, tracking_number), updated_at = now()
+                    tracking_number = coalesce($4, tracking_number),
+                    payment_status = CASE WHEN $5 THEN 'paid' ELSE payment_status END,
+                    paid_at = CASE WHEN $5 AND paid_at IS NULL THEN now() ELSE paid_at END,
+                    updated_at = now()
              WHERE id = $1`,
-            [req.params.id, status, courier, tracking],
+            [req.params.id, status, courier, tracking, codCollected],
         );
         return null;
     });
     if (outcome) return res.status(outcome.status).json(outcome.body);
+    // Tell the customer about status changes (and tracking numbers added to a shipped order).
+    const fresh = await loadOrder(req.params.id);
+    if (changedStatus || (trackingAdded && fresh.status === 'shipped')) await emailOrderStatus(fresh, req);
     const [order] = await loadAdminOrders('WHERE o.id = $1', [req.params.id]);
     res.json({ order });
 });
@@ -96,11 +111,17 @@ router.patch('/returns/:id', async (req, res) => {
     const status = str(req.body?.status);
     if (!RETURN_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid_status' });
     const note = str(req.body?.adminNote).slice(0, 500);
-    const { rowCount } = await query(
-        'UPDATE return_requests SET status = $2, admin_note = $3, updated_at = now() WHERE id = $1',
+    const { rows } = await query(
+        `UPDATE return_requests r SET status = $2, admin_note = $3, updated_at = now()
+         FROM orders o WHERE r.id = $1 AND o.id = r.order_id
+         RETURNING r.kind, r.order_id, r.status, r.admin_note, o.customer_email`,
         [req.params.id, status, note],
     );
-    if (rowCount === 0) return res.status(404).json({ error: 'return_not_found' });
+    if (rows.length === 0) return res.status(404).json({ error: 'return_not_found' });
+    const r = rows[0];
+    try {
+        await sendEmail({ to: r.customer_email, ...returnUpdateEmail({ kind: r.kind, orderId: r.order_id, status: r.status, adminNote: r.admin_note }, baseUrl(req)) });
+    } catch (err) { console.error('[notify] return email failed:', err.message); }
     res.json({ ok: true });
 });
 

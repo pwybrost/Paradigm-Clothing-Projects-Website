@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Confirm | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/account.css" />
+</head>
+<body>
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3 id="confirmSub">Confirmation</h3>
+    </div>
+    <div class="wrapper">
+        <div class="panel max-w-[480px] mx-auto text-center">
+            <div class="panel-title justify-center" id="confirmTitle">Confirm</div>
+            <p class="modal-text" id="confirmText"></p>
+            <button class="btn btn-blue" id="confirmBtn">Confirm</button>
+            <a class="btn mt-2.5" href="Profile.html" id="doneBtn" hidden>Go to Profile ►</a>
+        </div>
+    </div>
+    <script type="module">
+        import { confirmEmail, confirmPhone } from './auth.js';
+        import { playSound } from './ui.js';
+
+        const $ = (id) => document.getElementById(id);
+        const params = new URLSearchParams(location.search);
+        const type = params.get('type') === 'phone' ? 'phone' : 'verify';
+        const token = params.get('token') || '';
+        history.replaceState(null, '', location.pathname);
+
+        const COPY = {
+            verify: ['Verify Email', 'Email Verification', 'Press confirm to verify your email address.'],
+            phone: ['Confirm New Number', 'Contact Update', 'Press confirm to change the cellphone number on your profile.'],
+        };
+        const [title, sub, text] = COPY[type];
+        $('confirmTitle').textContent = title;
+        $('confirmSub').textContent = sub;
+        $('confirmText').textContent = token ? text : 'This link is missing its code.';
+        $('confirmBtn').disabled = !token;
+
+        $('confirmBtn').addEventListener('click', async function () {
+            this.disabled = true;
+            const r = type === 'phone' ? await confirmPhone(token) : await confirmEmail(token);
+            if (r.ok) {
+                playSound('success');
+                $('confirmText').textContent = type === 'phone' ? `Number updated to ${r.data.phone}.` : 'Email verified. You can now check out.';
+                this.hidden = true;
+                $('doneBtn').hidden = false;
+            } else {
+                playSound('error');
+                $('confirmText').textContent = 'This link has expired or was already used. Request a new one from your profile.';
+                $('doneBtn').hidden = false;
+            }
+        });
+    </script>
+</body>
+</html>

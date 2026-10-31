@@ -103,3 +103,13 @@ Tailwind's Preflight reset is not included because it would change the existing 
 - Owner console: arrange, returns, customers, stock alerts, discount codes, inbox, store settings, CSV exports.
 - Edit the size-guide measurements in `SIZE_GUIDE` at the top of `frontend/shop.js`.
 - Vercel Analytics: enable it once under Project → Analytics. `frontend/analytics.js` only loads on vercel.app.
+
+## Email & payments (Batch 4)
+
+Both are optional: without the keys, emails are skipped and checkout offers Cash on Delivery only.
+Store Settings → Integrations in the owner console shows what's connected. All variables are listed in `.env.example`.
+
+- **Resend:** `RESEND_API_KEY`, `EMAIL_FROM` (a verified domain), `EMAIL_REPLY_TO`.
+- **PayMongo:** `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`. Create a webhook for `https://prdgm.vercel.app/api/payments/webhook`
+  with the event `checkout_session.payment.paid`.
+- **Also set:** `APP_URL`, `ADMIN_EMAILS`, `APP_SECRET`, `CRON_SECRET`.

@@ -95,8 +95,8 @@
     </div>
 
     <script type="module">
-        import { getCurrentUser, getMyOrders, cancelOrder, getWishlist, removeFromWishlist, requestReturn } from './auth.js';
-        import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, toast, loadCart, addToStoredCart } from './ui.js';
+        import { getCurrentUser, getMyOrders, cancelOrder, getWishlist, removeFromWishlist, requestReturn, payOrder, checkPayment } from './auth.js';
+        import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, toast, loadCart, addToStoredCart, getStoreSettings } from './ui.js';
 
         const $ = (id) => document.getElementById(id);
         const ACTIVE = ['pending', 'paid', 'shipped'];
@@ -107,6 +107,9 @@
         let wishlist = [];
         let cancelTarget = null;
         let returnTarget = null;
+        let onlinePayments = false;
+        const PAY_LABEL = { unpaid: 'Cash on Delivery', awaiting: 'Awaiting online payment', paid: 'Paid', failed: 'Payment failed', expired: 'Payment expired' };
+        const payText = (o) => o.paymentMethod === 'cod' && o.paymentStatus !== 'paid' ? 'Cash on Delivery' : `${o.paymentMethod === 'online' ? 'Online · ' : 'COD · '}${PAY_LABEL[o.paymentStatus] || o.paymentStatus}`;
         let returnKind = 'exchange';
         const addressText = (a) => (a ? [a.name, a.line1, a.line2, a.city, a.province, a.postalCode, a.country].filter(Boolean).join(', ') : '');
 
@@ -114,7 +117,19 @@
         if (!user) { window.location.href = `Login.html?next=${encodeURIComponent('Orders.html' + location.hash)}`; }
         else {
             mountUserMenu(user, { current: location.hash === '#wishlist' ? 'wishlist' : 'orders' });
-            const [o, w] = await Promise.all([getMyOrders(), getWishlist()]);
+            const params = new URLSearchParams(location.search);
+            const paidId = params.get('paid');
+            if (paidId || params.get('payment')) history.replaceState(null, '', location.pathname + location.hash);
+            // Back from PayMongo: confirm the payment straight away (the webhook may still be on its way).
+            if (paidId) {
+                const r = await checkPayment(paidId);
+                if (r.ok && r.data.order.paymentStatus === 'paid') { playSound('success'); setTimeout(() => toast(`Payment received · order #${paidId} confirmed`), 900); }
+                else setTimeout(() => toast('Payment processing. This page updates once it is confirmed'), 900);
+            } else if (params.get('payment') === 'cancelled') {
+                setTimeout(() => toast('Payment cancelled · use Pay Now to try again', 'error'), 900);
+            }
+            const [o, w, st] = await Promise.all([getMyOrders(), getWishlist(), getStoreSettings()]);
+            onlinePayments = Boolean(st?.onlinePayments);
             orders = o.ok ? o.data.orders : [];
             wishlist = w.ok ? w.data.items : [];
             renderOrders();
@@ -164,11 +179,12 @@
                         ${o.items.map(i => `<div class="order-line"><span>${escapeHtml(i.title)}<span class="order-line-qty">${escapeHtml(i.size)}${i.color ? ` · ${escapeHtml(i.color)}` : ''} ×${i.quantity}${i.isPreorder ? ' · PRE-ORDER' : ''}</span></span><span>${peso(i.lineTotal)}</span></div>`).join('')}
                         <div class="order-line"><span class="order-line-qty ml-0">SUBTOTAL ${peso(o.subtotal)}${o.bundleDiscount ? ` · BUNDLE −${peso(o.bundleDiscount)}` : ''}${o.discount ? ` · ${escapeHtml(o.discountCode || 'CODE')} −${peso(o.discount)}` : ''} · SHIPPING ${o.shippingFee ? peso(o.shippingFee) : 'FREE'}</span><span>${peso(o.total)}</span></div>
                         ${o.trackingNumber || o.courier ? `<p class="panel-note mt-2.5 text-accent">◆ ${escapeHtml(o.courier || 'Courier')} · Tracking: <span class="select-all">${escapeHtml(o.trackingNumber || 'pending')}</span></p>` : ''}
-                        ${o.shippingAddress ? `<p class="panel-note mt-2">Ship to: ${escapeHtml(addressText(o.shippingAddress))} · ${escapeHtml(o.contactPhone)} · Cash on Delivery</p>` : ''}
+                        ${o.shippingAddress ? `<p class="panel-note mt-2">Ship to: ${escapeHtml(addressText(o.shippingAddress))} · ${escapeHtml(o.contactPhone)} · ${escapeHtml(payText(o))}</p>` : ''}
                         ${(o.returns || []).map(r => `<p class="panel-note mt-2 is-warn">↺ ${escapeHtml(r.kind)} request: ${escapeHtml(r.status)}${r.adminNote ? ` · "${escapeHtml(r.adminNote)}"` : ''}</p>`).join('')}
                         <div class="order-foot">
-                            <span class="panel-note">${o.status === 'pending' ? 'Pay the courier on delivery' : `Last update ${new Date(o.updatedAt || o.createdAt).toLocaleString()}`}</span>
+                            <span class="panel-note">${o.status === 'pending' ? (o.paymentStatus === 'awaiting' ? 'Complete payment within 2 hours or the order is released' : 'Pay the courier on delivery') : `Last update ${new Date(o.updatedAt || o.createdAt).toLocaleString()}`}</span>
                             <span class="flex gap-2 flex-wrap">
+                                ${o.status === 'pending' && o.paymentStatus !== 'paid' && onlinePayments ? `<button class="btn btn-blue btn-auto" data-pay="${escapeHtml(o.id)}">${o.paymentStatus === 'awaiting' ? 'Pay Now' : 'Pay Online'}</button>` : ''}
                                 <a class="btn btn-auto" href="Receipt.html?order=${escapeHtml(o.id)}" target="_blank">Receipt</a>
                                 <button class="btn btn-auto" data-again="${escapeHtml(o.id)}">Buy Again</button>
                                 ${['shipped', 'completed'].includes(o.status) && !(o.returns || []).some(r => ['requested', 'approved'].includes(r.status)) ? `<button class="btn btn-auto" data-return="${escapeHtml(o.id)}">Return / Exchange</button>` : ''}
@@ -192,6 +208,20 @@
         }
 
         document.querySelector('#tab-orders').addEventListener('click', (e) => {
+            const pay = e.target.closest('[data-pay]');
+            if (pay) {
+                playSound('click');
+                if (pay.disabled) return;
+                pay.disabled = true;
+                payOrder(pay.dataset.pay).then((r) => {
+                    if (r.ok) { window.location.href = r.data.checkoutUrl; return; }
+                    pay.disabled = false;
+                    playSound('error');
+                    const msg = { email_unverified: 'Verify your email first (Profile page)', not_payable: 'This order can no longer be paid', payment_unavailable: 'Payment page unavailable. Try again shortly' };
+                    toast(msg[r.data.error] || 'Could not start payment', 'error');
+                });
+                return;
+            }
             const again = e.target.closest('[data-again]');
             if (again) {
                 playSound('click');

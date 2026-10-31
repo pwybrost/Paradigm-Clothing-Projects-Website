@@ -10,6 +10,7 @@ import profileRouter from './routes/profile.js';
 import wishlistRouter from './routes/wishlist.js';
 import adminRouter from './routes/admin/index.js';
 import storeRouter from './routes/store.js';
+import paymentsRouter from './routes/payments.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -18,6 +19,9 @@ app.set('trust proxy', 1); // Vercel terminates TLS in front of the function
 // CSP is off because the pages use inline scripts/handlers and remote images
 // (background, flags, placeholders). The other helmet headers still apply.
 app.use(helmet({ contentSecurityPolicy: false }));
+// The PayMongo webhook needs the raw body for its signature, so it's mounted before the JSON parser.
+app.use('/api/payments', paymentsRouter);
+
 // Profile pictures are sent as base64 JSON, so that one route gets a bigger body limit.
 app.use('/api/profile/avatar', express.json({ limit: '1mb' }));
 // Product photo uploads (Vercel caps request bodies at 4.5 MB).

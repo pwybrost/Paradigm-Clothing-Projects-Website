@@ -60,6 +60,7 @@ export function toPublicUser(row) {
         avatar: row.avatar_updated_at
             ? `/api/profile/avatar?v=${new Date(row.avatar_updated_at).getTime()}`
             : null,
+        emailVerified: Boolean(row.email_verified_at),
         createdAt: row.created_at,
     };
 }

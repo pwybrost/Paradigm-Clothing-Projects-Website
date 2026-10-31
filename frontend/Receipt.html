@@ -72,7 +72,7 @@
                     <div><div class="r-label">Billed / Shipped To</div>
                         <div class="r-text">${escapeHtml(a.name || o.customerName)}<br>${[a.line1, a.line2].filter(Boolean).map(escapeHtml).join('<br>')}<br>${escapeHtml([a.city, a.province, a.postalCode].filter(Boolean).join(', '))}<br>${escapeHtml(a.country || '')}</div></div>
                     <div><div class="r-label">Contact &amp; Payment</div>
-                        <div class="r-text">${escapeHtml(o.customerEmail)}<br>${escapeHtml(o.contactPhone || '—')}<br>Payment: ${o.paymentMethod === 'cod' ? 'Cash on Delivery' : escapeHtml(o.paymentMethod)}
+                        <div class="r-text">${escapeHtml(o.customerEmail)}<br>${escapeHtml(o.contactPhone || '—')}<br>Payment: ${o.paymentMethod === 'online' ? 'Online (PayMongo)' : 'Cash on Delivery'} · ${o.paymentStatus === 'paid' ? `PAID${o.paidAt ? ` ${new Date(o.paidAt).toLocaleDateString()}` : ''}` : 'UNPAID'}
                         ${o.trackingNumber ? `<br>${escapeHtml(o.courier || 'Courier')} · ${escapeHtml(o.trackingNumber)}` : ''}</div></div>
                 </div>
                 <table class="r-table">

@@ -751,6 +751,29 @@ $('applyCodeBtn').addEventListener('click', () => {
 $('discountInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('applyCodeBtn').click(); });
 
 // ---------- Checkout ----------
+// ---------- Payment options ----------
+const METHOD_LABELS = { gcash: 'GCash', paymaya: 'Maya', card: 'Card', grab_pay: 'GrabPay', qrph: 'QR Ph', dob: 'Online Banking', billease: 'BillEase' };
+let payMethod = 'cod';
+function renderPayOptions() {
+    const online = Boolean(settings?.onlinePayments);
+    if (!online) payMethod = 'cod';
+    const methods = (settings?.paymentMethods ?? []).map((m) => METHOD_LABELS[m] || m).join(' · ');
+    const option = (value, title, note) => `
+        <label class="pay-box pay-option${payMethod === value ? ' active' : ''}" data-pay="${value}">
+            <input type="radio" name="payMethod" value="${value}" ${payMethod === value ? 'checked' : ''}> ◆ ${title}<small>${note}</small>
+        </label>`;
+    $('payOptions').innerHTML = (online ? option('online', `Pay Online${methods ? ` · ${methods}` : ''}`, 'Secure payment page by PayMongo. Your order is confirmed instantly.') : '')
+        + option('cod', 'Cash on Delivery', 'Pay the courier when your order arrives.');
+    $('confirmCheckoutBtn').textContent = payMethod === 'online' ? 'Proceed to Payment ►' : 'Finalize Transmission';
+}
+$('payOptions').addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-pay]');
+    if (!opt || opt.dataset.pay === payMethod) return;
+    playSound();
+    payMethod = opt.dataset.pay;
+    renderPayOptions();
+});
+
 function showStep(step) {
     $('stepCart').hidden = step !== 'cart';
     $('stepShip').hidden = step !== 'ship';
@@ -785,6 +808,8 @@ $('toShippingBtn').addEventListener('click', async () => {
     fill('shipProvince', a.province); fill('shipPostal', a.postalCode);
     if (a.country) $('shipCountry').value = a.country;
     $('status-msg').innerHTML = '';
+    if (settings?.onlinePayments && payMethod === 'cod' && !$('payOptions').innerHTML) payMethod = 'online';
+    renderPayOptions();
     showStep('ship');
 });
 $('backToCartBtn').addEventListener('click', () => { playSound(); showStep('cart'); $('status-msg').innerHTML = ''; });
@@ -796,6 +821,9 @@ const CHECKOUT_ERRORS = {
     discount_invalid: 'ERROR: DISCOUNT CODE NO LONGER VALID.',
     not_authenticated: 'ERROR: SESSION EXPIRED. PLEASE LOG IN AGAIN.',
     size_required: 'ERROR: EVERY ITEM NEEDS A SIZE.',
+    email_unverified: "ERROR: VERIFY YOUR EMAIL FIRST. <a class='underline' href='Profile.html'>OPEN PROFILE</a>",
+    payments_unavailable: 'ERROR: ONLINE PAYMENT IS OFFLINE. CHOOSE CASH ON DELIVERY.',
+    payment_unavailable: 'ERROR: PAYMENT PAGE UNAVAILABLE. ORDER RELEASED · RETRY OR USE CASH ON DELIVERY.',
 };
 
 window.processCheckout = async () => {
@@ -822,11 +850,22 @@ window.processCheckout = async () => {
             notes: $('shipNotes').value,
             discountCode: $('discountInput').value.trim(),
             saveAddress: $('saveAddress').checked,
+            paymentMethod: payMethod,
         }),
         new Promise((resolve) => setTimeout(resolve, 2000)),
     ]);
     btn.disabled = false;
 
+    if (result.success && result.data?.checkoutUrl) {
+        // Online payment: cart is cleared now; the order is held for 2 hours while the customer pays.
+        playSound('success');
+        status.innerHTML = `<span class='text-accent'>ORDER #${escapeHtml(result.order.id)} RESERVED. ROUTING TO SECURE PAYMENT...</span>`;
+        cart = [];
+        sessionStorage.removeItem(CODE_KEY);
+        updateCartUI();
+        setTimeout(() => { window.location.href = result.data.checkoutUrl; }, 1200);
+        return;
+    }
     if (result.success) {
         playSound('success');
         const id = escapeHtml(result.order.id);

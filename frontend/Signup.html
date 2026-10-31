@@ -540,6 +540,7 @@
                 
                 if (result.success) {
                     playSound('success'); 
+                    if (result.verificationSent) document.querySelector('#successModal p').textContent = 'Verification link sent to your email. Routing to Profile Authentication...';
                     document.getElementById('successModal').classList.add('active');
                     setTimeout(() => { window.location.href = 'Login.html'; }, 3500);
                 } else {

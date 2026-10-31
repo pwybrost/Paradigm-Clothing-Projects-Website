@@ -218,7 +218,8 @@ function injectModals() {
             <h2 class="admin-h2">Inbox</h2>
             <div class="chip-row justify-center mb-5" id="admInboxTabs">
                 <button class="chip active" data-inbox="messages">Contact Messages</button>
-                <button class="chip" data-inbox="subscribers">Newsletter</button>
+                <button class="chip" data-inbox="subscribers">Subscribers</button>
+                <button class="chip" data-inbox="compose">Send Newsletter</button>
             </div>
             <div id="admInboxBody"><div class="admin-empty">Loading...</div></div>`, 'admin-wide'),
         modal('admSettingsModal', `
@@ -801,7 +802,7 @@ function orderBlock(o) {
             <div class="aorder-body">
                 <div class="cust-info">
                     SHIP TO: ${escapeHtml(addressText(o.shippingAddress) || '—')}<br>
-                    CONTACT: ${escapeHtml(o.contactPhone || o.customer.phone || '—')} · PAYMENT: ${escapeHtml(o.paymentMethod === 'cod' ? 'Cash on Delivery' : o.paymentMethod)}
+                    CONTACT: ${escapeHtml(o.contactPhone || o.customer.phone || '—')} · PAYMENT: ${o.paymentMethod === 'online' ? 'ONLINE (PAYMONGO)' : 'CASH ON DELIVERY'} · <span class="${o.paymentStatus === 'paid' ? 'text-[#34d399]' : 'text-[#e0a84a]'}">${escapeHtml(o.paymentStatus.toUpperCase())}</span>
                     ${o.notes ? `<br>NOTES: ${escapeHtml(o.notes)}` : ''}
                     ${openReturn ? `<br><span class="text-[#e0a84a]">${escapeHtml(openReturn.kind.toUpperCase())} ${escapeHtml(openReturn.status.toUpperCase())}: ${escapeHtml(openReturn.reason)}</span>` : ''}
                 </div>
@@ -835,7 +836,7 @@ async function onOrdersClick(e) {
     const status = block.querySelector('[data-status-select]').value;
     if (status !== order.status) body.status = status;
     if (body.status === 'cancelled'
-        && !(await confirmDialog(`Cancel Order #${id}?`, 'Stock goes back to inventory and the order is excluded from sales. This cannot be undone.', 'Cancel Order'))) return;
+        && !(await confirmDialog(`Cancel Order #${id}?`, `Stock goes back to inventory and the order is excluded from sales. This cannot be undone.${order.paymentMethod === 'online' && order.paymentStatus === 'paid' ? ' This order was paid online: refund it in your PayMongo dashboard.' : ''}`, 'Cancel Order'))) return;
 
     save.disabled = true;
     const { ok, data } = await api(`/api/admin/orders/${id}`, { method: 'PATCH', body });
@@ -1022,12 +1023,23 @@ async function loadInbox(tab) {
                 <div class="aorder-body">
                     <div class="review-body mb-2.5">${escapeHtml(m.message)}</div>
                     <div class="aorder-actions">
-                        <a class="btn btn-blue" href="mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(`Re: ${m.subject || 'Your message to Paradigm'}`)}">Reply by Email</a>
+                        <textarea class="search-input flex-1 min-h-[70px]" data-reply-text placeholder="Write a reply (sent by email from the store)..." maxlength="5000"></textarea>
+                    </div>
+                    <div class="aorder-actions">
+                        <button class="btn btn-blue" data-msg-reply>Send Reply</button>
+                        <a class="btn" href="mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(`Re: ${m.subject || 'Your message to Paradigm'}`)}">Open in Mail App</a>
                         <button class="btn" data-msg-read="${m.isRead ? 'false' : 'true'}">${m.isRead ? 'Mark Unread' : 'Mark Read'}</button>
                         <button class="btn btn-danger" data-msg-del>Delete</button>
                     </div>
                 </div>
             </div>`).join('') : '<div class="admin-empty">--- [ NO MESSAGES ] ---</div>';
+    } else if (tab === 'compose') {
+        body.innerHTML = `
+            <p class="admin-note mb-2.5">Sent to every subscriber with an unsubscribe link. Send a test to yourself first.</p>
+            <div class="admin-field mb-2.5"><label>Subject</label><input class="search-input" id="nlSubject" maxlength="150" placeholder="e.g. NEW DROP · FRIDAY 8PM"></div>
+            <div class="admin-field mb-2.5"><label>Message</label><textarea class="search-input min-h-[180px]" id="nlMessage" maxlength="10000" placeholder="Write your announcement..."></textarea></div>
+            <div class="admin-row"><button class="btn" data-nl-send="test">Send Test to Me</button><button class="btn btn-blue" data-nl-send="all">Send to All Subscribers</button></div>
+            <p class="admin-note mt-2.5" id="nlStatus"></p>`;
     } else {
         const { ok, data } = await api('/api/admin/subscribers');
         if (!ok) { body.innerHTML = '<div class="admin-empty">--- [ OFFLINE ] ---</div>'; return; }
@@ -1044,6 +1056,32 @@ async function onInboxClick(e) {
     const read = e.target.closest('[data-msg-read]');
     const del = e.target.closest('[data-msg-del]');
     const sub = e.target.closest('[data-sub-del]');
+    const reply = e.target.closest('[data-msg-reply]');
+    const nl = e.target.closest('[data-nl-send]');
+    if (nl) {
+        const subject = $('nlSubject').value.trim();
+        const message = $('nlMessage').value.trim();
+        if (!subject || message.length < 5) { playSound('error'); toast('Add a subject and message', 'error'); return; }
+        const test = nl.dataset.nlSend === 'test';
+        if (!test && !(await confirmDialog('Send Newsletter?', 'This emails every subscriber now. It cannot be undone.', 'Send', false))) return;
+        nl.disabled = true;
+        $('nlStatus').textContent = 'Transmitting...';
+        const { ok, data } = await api('/api/admin/newsletter', { method: 'POST', body: { subject, message, test } });
+        nl.disabled = false;
+        if (ok) { playSound('success'); $('nlStatus').textContent = `Sent ${data.sent} of ${data.total}.`; }
+        else { playSound('error'); $('nlStatus').textContent = data.error === 'email_unavailable' ? 'Email is not configured yet (see Store Settings → Integrations).' : `Failed: ${errText(data)}`; }
+        return;
+    }
+    if (reply && msg) {
+        const text = msg.querySelector('[data-reply-text]').value.trim();
+        if (text.length < 2) { playSound('error'); toast('Write a reply first', 'error'); return; }
+        reply.disabled = true;
+        const { ok, data } = await api(`/api/admin/messages/${msg.dataset.msg}/reply`, { method: 'POST', body: { message: text } });
+        reply.disabled = false;
+        if (ok) { playSound('success'); toast('Reply sent'); loadInbox('messages'); }
+        else { playSound('error'); toast(data.error === 'email_unavailable' ? 'Email not configured · use Open in Mail App' : `Send failed: ${errText(data)}`, 'error'); }
+        return;
+    }
     if (read && msg) {
         playSound();
         await api(`/api/admin/messages/${msg.dataset.msg}`, { method: 'PATCH', body: { isRead: read.dataset.msgRead === 'true' } });
@@ -1069,8 +1107,21 @@ async function openSettings() {
     if (!ok) { $('admSettingsBody').innerHTML = '<div class="admin-empty">--- [ OFFLINE ] ---</div>'; return; }
     storeSettings = data.settings;
     const s = storeSettings;
+    const sys = (await api('/api/admin/system')).data || {};
+    const flag = (on, label, hint) => `<tr><td>${label}</td><td><span class="status-badge ${on ? 'status-completed' : 'status-pending'}">${on ? 'online' : 'not set'}</span></td><td class="admin-note">${hint}</td></tr>`;
+    const integrations = `
+        <div class="pnl-section">Integrations</div>
+        <table class="admin-table mb-2.5"><tbody>
+            ${flag(sys.email, 'Email (Resend)', sys.email ? `From ${escapeHtml(sys.emailFrom)}` : 'Set RESEND_API_KEY and EMAIL_FROM in Vercel')}
+            ${flag(sys.payments, `Online Payments (PayMongo${sys.payments ? (sys.paymentsLive ? ' · LIVE' : ' · TEST') : ''})`, sys.payments ? escapeHtml((sys.paymentMethods || []).join(', ')) : 'Set PAYMONGO_SECRET_KEY in Vercel')}
+            ${flag(sys.webhook, 'Payment Webhook', 'Set PAYMONGO_WEBHOOK_SECRET (from the PayMongo webhook)')}
+            ${flag(sys.cron, 'Daily Cleanup (Cron)', 'Set CRON_SECRET in Vercel')}
+            ${flag(Boolean(sys.appUrl), 'Site URL', sys.appUrl ? escapeHtml(sys.appUrl) : 'Set APP_URL (e.g. https://prdgm.vercel.app)')}
+            ${flag(sys.ownerEmails > 0, 'Owner Emails', sys.ownerEmails ? `${sys.ownerEmails} in ADMIN_EMAILS` : 'Set ADMIN_EMAILS to your email')}
+        </tbody></table>`;
     const f = (label, name, value, type = 'number', extra = '') => `<div class="admin-field"><label>${label}</label><input class="search-input" name="${name}" type="${type}" value="${escapeHtml(value ?? '')}" ${extra}></div>`;
     $('admSettingsBody').innerHTML = `
+        ${integrations}
         <form id="admSettingsForm">
             <div class="pnl-section">Shipping</div>
             <div class="admin-row">

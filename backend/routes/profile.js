@@ -4,7 +4,11 @@ import { hashPassword, verifyPassword } from '../lib/password.js';
 import {
     NAME_CHANGE_DAYS, destroyOtherSessions, fetchUser, loadUser, requireAuth, toPublicUser,
 } from '../lib/session.js';
-import { PASSWORD_RE, PERSON_NAME_RE, SIZES, rawStr, sniffImageType, str } from '../lib/validation.js';
+import { PASSWORD_RE, PERSON_NAME_RE, PHONE_RE, SIZES, rawStr, sniffImageType, str } from '../lib/validation.js';
+import { baseUrl, emailEnabled } from '../config.js';
+import { phoneChangeEmail, sendEmail } from '../lib/email.js';
+import { allow, keyBucket } from '../lib/rateLimit.js';
+import { createToken } from '../lib/tokens.js';
 
 const router = Router();
 const MAX_AVATAR_BYTES = 512 * 1024; // the browser resizes to 320x320 before uploading
@@ -142,6 +146,22 @@ router.post('/password', async (req, res) => {
     await query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [req.user.id, await hashPassword(next)]);
     const signedOut = await destroyOtherSessions(req, req.user.id);
     res.json({ ok: true, signedOut });
+});
+
+// Phone change: sends a confirmation link to the account email; the number changes only after it's clicked.
+router.post('/phone', async (req, res) => {
+    const phone = str(req.body?.phone);
+    if (!PHONE_RE.test(phone)) return res.status(400).json({ error: 'invalid_phone' });
+    if (phone === req.user.phone) return res.status(400).json({ error: 'same_phone' });
+    if (!emailEnabled()) return res.status(503).json({ error: 'email_unavailable' });
+    if (!(await allow(keyBucket('phone', req.user.id), 3, 60))) return res.status(429).json({ error: 'too_many_requests' });
+    const token = await createToken(req.user.id, 'phone', 60, { phone });
+    const sent = await sendEmail({
+        to: req.user.email,
+        ...phoneChangeEmail(req.user.first_name || req.user.username, phone, `${baseUrl(req)}/Confirm.html?type=phone&token=${token}`),
+    });
+    if (!sent?.ok) return res.status(502).json({ error: 'email_failed' });
+    res.json({ ok: true });
 });
 
 router.post('/logout-others', async (req, res) => {

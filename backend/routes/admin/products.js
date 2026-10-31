@@ -4,6 +4,37 @@ import { Router } from 'express';
 import { query, withTransaction } from '../../db.js';
 import { listProducts, SIZE_ORDER } from '../../lib/catalog.js';
 import { parsePositiveInt, rawStr, sniffImageType, str } from '../../lib/validation.js';
+import { baseUrl, emailEnabled } from '../../config.js';
+import { restockEmail, sendBatch } from '../../lib/email.js';
+
+// Emails customers who asked to be notified, for sizes that just went from 0 to in stock.
+// Requests are only removed once an email was actually sent.
+async function sendRestockAlerts(req, productId, before, after) {
+    if (!emailEnabled()) return 0;
+    const key = (v) => `${v.color.toLowerCase()}|${v.size}`;
+    const old = new Map(before.map((v) => [key(v), v.stock]));
+    const restocked = after.filter((v) => v.stock > 0 && (old.get(key(v)) ?? 0) === 0);
+    if (!restocked.length) return 0;
+    const { rows: [product] } = await query('SELECT id, title FROM products WHERE id = $1 AND is_active', [productId]);
+    if (!product) return 0;
+    const { rows } = await query(
+        `SELECT r.user_id, r.size, r.color, u.email FROM restock_requests r JOIN users u ON u.id = r.user_id
+         WHERE r.product_id = $1`,
+        [productId],
+    );
+    const matches = rows.filter((r) => restocked.some((v) => (!r.size || r.size === v.size) && (!r.color || r.color.toLowerCase() === v.color.toLowerCase())));
+    if (!matches.length) return 0;
+    const base = baseUrl(req);
+    const result = await sendBatch(matches.map((m) => ({ to: m.email, ...restockEmail(product, m.size, base) })));
+    if (result.sent) {
+        await query(
+            `DELETE FROM restock_requests r USING unnest($2::uuid[], $3::text[], $4::text[]) AS k(uid, size, color)
+             WHERE r.product_id = $1 AND r.user_id = k.uid AND r.size = k.size AND r.color = k.color`,
+            [productId, matches.map((m) => m.user_id), matches.map((m) => m.size), matches.map((m) => m.color)],
+        );
+    }
+    return result.sent ?? 0;
+}
 
 const router = Router();
 const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024; // the browser resizes to max 1600px WebP before upload
@@ -179,9 +210,11 @@ router.patch('/:id', async (req, res) => {
     const image = req.body?.image ? readImage(req.body.image) : null;
     if (image?.error) return res.status(400).json({ error: image.error });
 
+    let previousVariants = [];
     const found = await withTransaction(async (client) => {
         const { rowCount } = await client.query('SELECT 1 FROM products WHERE id = $1 FOR UPDATE', [id]);
         if (rowCount === 0) return false;
+        previousVariants = (await client.query('SELECT color, size, stock FROM product_variants WHERE product_id = $1', [id])).rows;
         const keys = Object.keys(fields);
         if (keys.length) {
             const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
@@ -192,6 +225,12 @@ router.patch('/:id', async (req, res) => {
         return true;
     });
     if (!found) return res.status(404).json({ error: 'product_not_found' });
+    if (variants) {
+        try {
+            const sent = await sendRestockAlerts(req, id, previousVariants, variants);
+            if (sent) res.set('X-Restock-Alerts', String(sent));
+        } catch (err) { console.error('[restock] alerts failed:', err.message); }
+    }
     await respondProduct(res, id);
 });
 

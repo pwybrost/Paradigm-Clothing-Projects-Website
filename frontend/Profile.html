@@ -27,6 +27,11 @@
     </div>
 
     <div class="wrapper">
+        <div class="panel mb-5 flex justify-between items-center gap-4 flex-wrap" id="verifyBanner" hidden>
+            <span class="panel-note is-warn">◆ Verify your email to check out. We sent a link to <span id="verifyEmailText"></span>.</span>
+            <button class="btn btn-auto" id="resendVerifyBtn">Resend Link</button>
+        </div>
+
         <nav class="tabs">
             <button class="tab-btn active" data-tab="profile">Profile</button>
             <button class="tab-btn" data-tab="history">History &amp; Transactions</button>
@@ -201,20 +206,28 @@
         </div>
     </div>
 
-    <!-- Phone change (email confirmation pending an email provider) -->
+    <!-- Phone change: confirmed through a link sent to the account email -->
     <div class="modal-overlay" id="phoneModal">
         <div class="modal-content">
             <span class="modal-close" data-close="phoneModal">[ CLOSE ]</span>
-            <h2 class="modal-title">Email Confirmation Required</h2>
-            <p class="modal-text">For your security, number changes are confirmed with a link sent to <span class="text-accent" id="phoneModalEmail"></span>.<br><br>The email channel is not online yet. This option unlocks soon.</p>
-            <button class="btn" data-close="phoneModal">Understood</button>
+            <h2 class="modal-title">Change Cellphone Number</h2>
+            <p class="modal-text">We'll send a confirmation link to <span class="text-accent" id="phoneModalEmail"></span>. The number changes only after you click it.</p>
+            <div class="field-row">
+                <div class="field"><label for="newPhoneCode">Country Code</label><input class="search-input" id="newPhoneCode" value="+63" maxlength="12" /></div>
+                <div class="field"><label for="newPhone">Number (10 digits)</label><input class="search-input" id="newPhone" maxlength="10" inputmode="numeric" placeholder="9123456789" /></div>
+            </div>
+            <p class="panel-note mb-[15px]" id="phoneModalStatus"></p>
+            <div class="modal-actions">
+                <button class="btn" data-close="phoneModal">Cancel</button>
+                <button class="btn btn-blue" id="sendPhoneBtn">Send Confirmation</button>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import {
             getProfile, updateProfile, updateName, uploadAvatar, deleteAvatar,
-            changePassword, logoutOtherDevices, getMyOrders, logout,
+            changePassword, logoutOtherDevices, getMyOrders, logout, requestPhoneChange, resendVerification,
         } from './auth.js';
         import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, toast } from './ui.js';
 
@@ -225,22 +238,6 @@
         let profile = null;
         let orders = [];
         let selectedSize = '';
-
-        // ---------- Load ----------
-        const res = await getProfile();
-        if (!res.ok) { window.location.href = `Login.html?next=${encodeURIComponent('Profile.html' + location.hash)}`; }
-        else {
-            profile = res.data;
-            mountUserMenu(profile.user, { current: location.hash === '#history' ? 'history' : 'profile' });
-            renderProfile();
-            const o = await getMyOrders();
-            orders = o.ok ? o.data.orders : [];
-            renderHistory();
-            openTab(location.hash === '#history' ? 'history' : location.hash === '#security' ? 'security' : 'profile', false);
-            const loader = $('loaderScreen');
-            loader.classList.add('fade-out');
-            setTimeout(() => { loader.style.display = 'none'; }, 800);
-        }
 
         initThemeToggle($('themeToggleBtn'));
         document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea')) e.preventDefault(); });
@@ -404,7 +401,37 @@
             mountUserMenu(profile.user, { current: 'profile' });
         }
 
-        $('changePhoneBtn').addEventListener('click', () => { playSound('click'); openModal('phoneModal'); });
+        $('changePhoneBtn').addEventListener('click', () => {
+            playSound('click');
+            $('phoneModalStatus').textContent = '';
+            $('newPhone').value = '';
+            openModal('phoneModal');
+        });
+        $('newPhone').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); });
+        $('sendPhoneBtn').addEventListener('click', () => withBusy($('sendPhoneBtn'), async () => {
+            const code = $('newPhoneCode').value.trim();
+            const num = $('newPhone').value.trim();
+            if (!/^\+[0-9 (),]{1,25}$/.test(code) || !/^\d{10}$/.test(num)) { playSound('error'); $('phoneModalStatus').textContent = 'Enter a country code like +63 and exactly 10 digits.'; return; }
+            const r = await requestPhoneChange(`${code} ${num}`);
+            if (r.ok) { playSound('success'); $('phoneModalStatus').textContent = 'Link sent. Check your email to confirm the new number.'; }
+            else {
+                playSound('error');
+                const msg = { email_unavailable: 'Email confirmation is not online yet.', same_phone: 'That is already your number.', too_many_requests: 'Too many requests. Try again in an hour.', invalid_phone: 'Invalid number.' };
+                $('phoneModalStatus').textContent = msg[r.data.error] || 'Could not send. Retry.';
+            }
+        }));
+
+        // ---------- Email verification ----------
+        function renderVerifyBanner() {
+            const show = !profile.user.emailVerified;
+            $('verifyBanner').hidden = !show;
+            $('verifyEmailText').textContent = profile.user.email;
+        }
+        $('resendVerifyBtn').addEventListener('click', () => withBusy($('resendVerifyBtn'), async () => {
+            const r = await resendVerification();
+            if (r.ok) { playSound('success'); toast(r.data.alreadyVerified ? 'Already verified' : 'Verification link sent'); }
+            else { playSound('error'); toast(r.data.error === 'too_many_requests' ? 'Try again in an hour' : r.data.error === 'email_unavailable' ? 'Email is not online yet' : 'Could not send', 'error'); }
+        }));
 
         // ---------- History tab ----------
         const SORTS = [
@@ -506,6 +533,22 @@
         }));
         $('logoutBtn').addEventListener('click', () => logout());
         $('backBtn').addEventListener('click', () => playSound('click'));
+        // ---------- Load ----------
+        const res = await getProfile();
+        if (!res.ok) { window.location.href = `Login.html?next=${encodeURIComponent('Profile.html' + location.hash)}`; }
+        else {
+            profile = res.data;
+            mountUserMenu(profile.user, { current: location.hash === '#history' ? 'history' : 'profile' });
+            renderProfile();
+            renderVerifyBanner();
+            const o = await getMyOrders();
+            orders = o.ok ? o.data.orders : [];
+            renderHistory();
+            openTab(location.hash === '#history' ? 'history' : location.hash === '#security' ? 'security' : 'profile', false);
+            const loader = $('loaderScreen');
+            loader.classList.add('fade-out');
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
+        }
     </script>
 </body>
 </html>

@@ -5,12 +5,20 @@ import { allow, ipBucket } from '../lib/rateLimit.js';
 import { loadUser } from '../lib/session.js';
 import { getSettings, publicSettings } from '../lib/settings.js';
 import { EMAIL_RE, str } from '../lib/validation.js';
+import { config, emailEnabled, paymentsEnabled } from '../config.js';
+import { unsubscribeToken } from '../lib/email.js';
+import { timingSafeEqual } from 'node:crypto';
 
 const router = Router();
 
 router.get('/settings', async (_req, res) => {
     res.set('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=30');
-    res.json(publicSettings(await getSettings()));
+    res.json({
+        ...publicSettings(await getSettings()),
+        emailEnabled: emailEnabled(),
+        onlinePayments: paymentsEnabled(),
+        paymentMethods: paymentsEnabled() ? config.paymongoMethods : [],
+    });
 });
 
 router.post('/newsletter', async (req, res) => {
@@ -38,5 +46,18 @@ router.post('/contact', loadUser, async (req, res) => {
     );
     res.status(201).json({ ok: true });
 });
+
+// Newsletter unsubscribe (link in every newsletter + one-click List-Unsubscribe POST).
+async function unsubscribe(req, res) {
+    const email = str(req.query.email).toLowerCase();
+    const token = str(req.query.token);
+    const expected = unsubscribeToken(email);
+    const valid = token.length === expected.length && timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+    if (valid) await query('DELETE FROM newsletter_subscribers WHERE email = $1', [email]);
+    if (req.method === 'POST') return res.status(valid ? 200 : 400).json({ ok: valid });
+    res.redirect(302, `/Info.html?unsubscribed=${valid ? '1' : 'invalid'}#about`);
+}
+router.get('/unsubscribe', unsubscribe);
+router.post('/unsubscribe', unsubscribe);
 
 export default router;

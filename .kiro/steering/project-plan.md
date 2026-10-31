@@ -57,7 +57,15 @@ inclusion: always
 - Info.html (About, FAQ, Shipping & Returns, Contact form, Terms, Privacy), footer + newsletter, OG tags, robots.txt,
   sitemap.xml, Vercel Analytics loader, login/signup rate limiting.
 
-### Batch 4: hardening and payments
-- Real payment gateway (PayMongo or Stripe) instead of "pending / pay on delivery" orders.
-- Email provider (Resend): phone-change confirmation, password reset, signup verification, order/shipping emails,
-  restock alerts (requests already stored), newsletter sending.
+### Batch 4: email + payments (done, code side)
+- Resend via HTTP (`backend/lib/email.js`): order confirmation (+ owner notice to ADMIN_EMAILS), status/tracking emails,
+  return updates, restock alerts (auto when a sold-out size gets stock), newsletter with unsubscribe, contact replies,
+  signup verification, forgot/reset passcode (Reset.html), phone change confirmation (Confirm.html). Skipped safely if not configured.
+- Checkout requires a verified email only when email is configured. Existing accounts were marked verified.
+- PayMongo Hosted Checkout (`backend/lib/paymongo.js`): pay online or COD, Pay Now/retry, webhook
+  `/api/payments/webhook`, return-page sync, unpaid online orders expire after 2h (lazy + daily cron).
+- ADMIN_EMAILS promotes owner accounts automatically; Store Settings shows an Integrations status table.
+- Owner still needs to: create Resend + PayMongo accounts and set the env vars listed in .env.example.
+
+### Later ideas
+- Refunds through the PayMongo API, abandoned-cart emails, multiple saved addresses, shipping rates by region.

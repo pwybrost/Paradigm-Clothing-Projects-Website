@@ -171,6 +171,7 @@
                 <button type="submit">Authenticate Profile</button>
             </form>
             
+            <div class="link" id="forgotPassBtn">Forgot Passcode?</div>
             <div class="link link-danger" id="forgotBtn">Reset Profile</div>
             <a href="Signup.html" class="link" id="initLink">No Profile? Initialize</a>
             <a href="index.html" class="link">◄ Browse as Guest</a>
@@ -195,6 +196,21 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="forgotModal">
+        <div class="modal-card max-w-[480px]">
+            <h2>Recover Passcode</h2>
+            <p id="forgotText">Enter your profile email. We'll send a link to set a new passcode.</p>
+            <div class="form-group mt-[25px] mb-0 text-left">
+                <input type="email" id="forgotEmail" placeholder="user@domain.com" />
+                <div class="error-dialog" id="forgotEmailError"></div>
+            </div>
+            <div class="btn-group">
+                <button class="btn-cancel" id="forgotCancelBtn">Cancel</button>
+                <button type="submit" class="w-auto mt-0 px-[30px] py-3" id="forgotSendBtn">Send Link</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="successResetModal">
         <div class="modal-card zoom-in-card">
             <h2>Profile Reset Successful</h2>
@@ -205,7 +221,7 @@
     <footer class="footer">Paradigm Clothing Projects · All Rights Reserved<br><span class="inline-block mt-2.5"><a class="text-[#888] no-underline hover:text-white" href="Info.html#privacy">Privacy</a> · <a class="text-[#888] no-underline hover:text-white" href="Info.html#terms">Terms</a> · <a class="text-[#888] no-underline hover:text-white" href="Info.html#contact">Contact</a></span></footer>
 
     <script type="module">
-        import { login, resetAccount, getCurrentUser } from './auth.js';
+        import { login, resetAccount, getCurrentUser, forgotPassword } from './auth.js';
 
         let audioCtx;
         function playSound(type) {
@@ -306,6 +322,36 @@
                 // One message for wrong email or wrong passcode, so the form doesn't reveal which emails exist.
                 playSound('error'); 
                 showError(passErr, passErr.dataset.orig);
+            }
+        });
+
+        // ---------- Forgot passcode ----------
+        const forgotModal = document.getElementById('forgotModal');
+        document.getElementById('forgotPassBtn').addEventListener('click', () => {
+            playSound('click');
+            document.getElementById('forgotEmail').value = document.getElementById('signinEmail').value;
+            document.getElementById('forgotText').textContent = "Enter your profile email. We'll send a link to set a new passcode.";
+            document.getElementById('forgotSendBtn').hidden = false;
+            forgotModal.classList.add('active');
+        });
+        document.getElementById('forgotCancelBtn').addEventListener('click', () => { playSound('click'); forgotModal.classList.remove('active'); });
+        document.getElementById('forgotSendBtn').addEventListener('click', async function () {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const err = document.getElementById('forgotEmailError');
+            if (!emailRegex.test(email)) { playSound('error'); showError(err, 'Enter a valid email.'); return; }
+            if (this.disabled) return;
+            this.disabled = true;
+            const r = await forgotPassword(email);
+            this.disabled = false;
+            if (r.ok) {
+                playSound('success');
+                document.getElementById('forgotText').textContent = 'If that email has a profile, a reset link is on its way. Check your inbox (and spam). The link expires in 1 hour.';
+                this.hidden = true;
+                document.getElementById('forgotCancelBtn').textContent = 'Close';
+            } else {
+                playSound('error');
+                const msg = { email_unavailable: 'Email recovery is not online yet. Contact us via the Info page.', too_many_requests: 'Too many requests. Try again later.', network_error: 'Connection lost. Retry.' };
+                showError(err, msg[r.data.error] || 'Request failed. Retry.');
             }
         });
 

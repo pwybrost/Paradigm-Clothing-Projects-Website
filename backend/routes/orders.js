@@ -1,9 +1,16 @@
 import { Router } from 'express';
+import { baseUrl, emailEnabled, paymentsEnabled } from '../config.js';
 import { query, withTransaction } from '../db.js';
+import {
+    emailOrderPlaced, loadOrder, loadOrders, maybeExpireUnpaidOrders, syncPayment, toOrderDto,
+} from '../lib/orders.js';
+import { createCheckoutSession, expireCheckoutSession } from '../lib/paymongo.js';
 import { buildQuote, parseCartItems, releaseOrder } from '../lib/pricing.js';
 import { loadUser, requireAuth } from '../lib/session.js';
 import { getSettings } from '../lib/settings.js';
 import { str } from '../lib/validation.js';
+
+export { toOrderDto };
 
 const router = Router();
 const PHONE_RE = /^[+0-9 ()-]{7,25}$/;
@@ -13,57 +20,6 @@ router.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();
 });
-
-export function toOrderDto(order, items, returns = []) {
-    return {
-        id: order.id,
-        status: order.status,
-        itemCount: order.item_count,
-        subtotal: order.subtotal ?? order.total,
-        bundleDiscount: order.bundle_discount ?? 0,
-        discount: order.discount ?? 0,
-        discountCode: order.discount_code ?? null,
-        shippingFee: order.shipping_fee ?? 0,
-        total: order.total,
-        shippingAddress: order.shipping_address ?? null,
-        contactPhone: order.contact_phone ?? '',
-        paymentMethod: order.payment_method ?? 'cod',
-        notes: order.notes ?? '',
-        courier: order.courier ?? '',
-        trackingNumber: order.tracking_number ?? '',
-        customerName: order.customer_name,
-        customerEmail: order.customer_email,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        items: items.map((i) => ({
-            productId: i.product_id,
-            title: i.title,
-            size: i.size ?? '',
-            color: i.color ?? '',
-            isPreorder: i.is_preorder ?? false,
-            unitPrice: i.unit_price,
-            quantity: i.quantity,
-            lineTotal: i.line_total,
-        })),
-        returns: returns.map((r) => ({
-            id: r.id, kind: r.kind, reason: r.reason, details: r.details,
-            status: r.status, adminNote: r.admin_note, createdAt: r.created_at, updatedAt: r.updated_at,
-        })),
-    };
-}
-
-async function loadOrders(whereSql, params) {
-    const { rows: orders } = await query(`SELECT * FROM orders ${whereSql}`, params);
-    if (orders.length === 0) return [];
-    const ids = orders.map((o) => o.id);
-    const [{ rows: items }, { rows: returns }] = await Promise.all([
-        query('SELECT * FROM order_items WHERE order_id = ANY($1::bigint[]) ORDER BY id', [ids]),
-        query('SELECT * FROM return_requests WHERE order_id = ANY($1::bigint[]) ORDER BY created_at DESC', [ids]),
-    ]);
-    const itemsBy = Map.groupBy(items, (i) => String(i.order_id));
-    const returnsBy = Map.groupBy(returns, (r) => String(r.order_id));
-    return orders.map((o) => toOrderDto(o, itemsBy.get(String(o.id)) ?? [], returnsBy.get(String(o.id)) ?? []));
-}
 
 function readShipping(body) {
     const a = body && typeof body === 'object' ? body : {};
@@ -84,6 +40,21 @@ function readShipping(body) {
     return { shipping, phone };
 }
 
+// Starts (or restarts) a PayMongo checkout for an order. Returns the checkout URL.
+async function startPayment(order, req) {
+    const { rows } = await query('SELECT payment_session_id FROM orders WHERE id = $1', [order.id]);
+    const previous = rows[0]?.payment_session_id;
+    const session = await createCheckoutSession(order, baseUrl(req));
+    await query(
+        `UPDATE orders SET payment_method = 'online', payment_status = 'awaiting', payment_session_id = $2,
+                payment_started_at = now(), updated_at = now()
+         WHERE id = $1`,
+        [order.id, session.id],
+    );
+    if (previous && previous !== session.id) await expireCheckoutSession(previous);
+    return session.url;
+}
+
 // ---------- Public: price a cart (guests can see totals and test discount codes) ----------
 router.post('/quote', async (req, res) => {
     const { lines, error } = parseCartItems(req.body?.items);
@@ -95,14 +66,19 @@ router.post('/quote', async (req, res) => {
 
 router.use(loadUser, requireAuth);
 
-// ---------- Place an order (Cash on Delivery until a payment gateway is connected) ----------
+// ---------- Place an order (Cash on Delivery or online via PayMongo) ----------
 router.post('/', async (req, res) => {
+    await maybeExpireUnpaidOrders(); // frees stock held by abandoned online payments
+    if (emailEnabled() && !req.user.email_verified_at) return res.status(403).json({ error: 'email_unverified' });
+
     const { lines, error } = parseCartItems(req.body?.items);
     if (error) return res.status(400).json({ error });
     const ship = readShipping(req.body?.shipping);
     if (ship.error) return res.status(400).json({ error: ship.error });
     const notes = str(req.body?.notes).slice(0, 500);
     const discountCode = str(req.body?.discountCode);
+    const online = req.body?.paymentMethod === 'online';
+    if (online && !paymentsEnabled()) return res.status(400).json({ error: 'payments_unavailable' });
 
     const result = await withTransaction(async (client) => {
         const settings = await getSettings(client);
@@ -127,11 +103,11 @@ router.post('/', async (req, res) => {
         const { rows } = await client.query(
             `INSERT INTO orders (user_id, customer_email, customer_name, item_count, subtotal, bundle_discount,
                                  discount, discount_code, shipping_fee, total, shipping_address, contact_phone,
-                                 payment_method, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'cod', $13) RETURNING *`,
+                                 payment_method, payment_status, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
             [req.user.id, req.user.email, ship.shipping.name || req.user.username, quote.itemCount, quote.subtotal,
                 quote.bundleDiscount, quote.discount, quote.discountCode, quote.shippingFee, quote.total,
-                ship.shipping, ship.phone, notes],
+                ship.shipping, ship.phone, online ? 'online' : 'cod', online ? 'awaiting' : 'unpaid', notes],
         );
         const order = rows[0];
         const items = [];
@@ -145,51 +121,112 @@ router.post('/', async (req, res) => {
             items.push(itemRows[0]);
         }
         if (req.body?.saveAddress === true) {
-            const { name, ...address } = ship.shipping;
+            const { name: _name, ...address } = ship.shipping;
             await client.query('UPDATE users SET shipping_address = $2, updated_at = now() WHERE id = $1', [req.user.id, address]);
         }
         return { status: 201, body: { order: toOrderDto(order, items) } };
     });
 
-    res.status(result.status).json(result.body);
+    if (result.status !== 201) return res.status(result.status).json(result.body);
+    const order = result.body.order;
+
+    if (!online) {
+        await emailOrderPlaced(order, req);
+        return res.status(201).json({ order });
+    }
+
+    // Online: hand the customer to PayMongo. If PayMongo is down, cancel so stock isn't stuck.
+    try {
+        const checkoutUrl = await startPayment(order, req);
+        return res.status(201).json({ order: await loadOrder(order.id), checkoutUrl });
+    } catch (err) {
+        console.error('[payments] checkout session failed:', err.message);
+        await withTransaction(async (client) => {
+            await client.query(`UPDATE orders SET status = 'cancelled', payment_status = 'failed', updated_at = now() WHERE id = $1`, [order.id]);
+            await releaseOrder(client, order.id);
+        });
+        return res.status(502).json({ error: 'payment_unavailable' });
+    }
 });
 
 router.get('/mine', async (req, res) => {
+    await maybeExpireUnpaidOrders();
     const orders = await loadOrders('WHERE user_id = $1 ORDER BY created_at DESC LIMIT 200', [req.user.id]);
     res.json({ orders });
 });
 
-// One order (for the receipt). Owners can open any order.
-router.get('/:id', async (req, res) => {
-    if (!/^\d{1,18}$/.test(req.params.id)) return res.status(400).json({ error: 'invalid_order' });
-    const isAdmin = req.user.role === 'admin';
-    const [order] = isAdmin
+async function ownOrder(req) {
+    if (!/^\d{1,18}$/.test(req.params.id)) return null;
+    const [order] = req.user.role === 'admin'
         ? await loadOrders('WHERE id = $1', [req.params.id])
         : await loadOrders('WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    return order ?? null;
+}
+
+// One order (for the receipt). Owners can open any order.
+router.get('/:id', async (req, res) => {
+    const order = await ownOrder(req);
     if (!order) return res.status(404).json({ error: 'order_not_found' });
     res.json({ order });
 });
 
-// Customers can cancel while pending. Stock and the discount-code use are returned.
+// Called when the customer comes back from PayMongo: confirms the payment directly,
+// so the order shows as paid even if the webhook hasn't arrived yet.
+router.get('/:id/payment', async (req, res) => {
+    const order = await ownOrder(req);
+    if (!order) return res.status(404).json({ error: 'order_not_found' });
+    try {
+        const updated = await syncPayment(order);
+        if (updated) {
+            await emailOrderPlaced(updated, req);
+            return res.json({ order: updated });
+        }
+    } catch (err) {
+        console.warn('[payments] sync failed:', err.message);
+    }
+    res.json({ order });
+});
+
+// Pay now / retry payment for a pending order (also switches a COD order to online).
+router.post('/:id/pay', async (req, res) => {
+    if (!paymentsEnabled()) return res.status(400).json({ error: 'payments_unavailable' });
+    if (emailEnabled() && !req.user.email_verified_at) return res.status(403).json({ error: 'email_unverified' });
+    if (!/^\d{1,18}$/.test(req.params.id)) return res.status(400).json({ error: 'invalid_order' });
+    const [order] = await loadOrders('WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error: 'order_not_found' });
+    if (order.status !== 'pending' || order.paymentStatus === 'paid') return res.status(409).json({ error: 'not_payable' });
+    try {
+        const checkoutUrl = await startPayment(order, req);
+        res.json({ checkoutUrl });
+    } catch (err) {
+        console.error('[payments] retry failed:', err.message);
+        res.status(502).json({ error: 'payment_unavailable' });
+    }
+});
+
+// Customers can cancel while pending and unpaid. Stock and the discount-code use are returned.
 router.post('/:id/cancel', async (req, res) => {
     if (!/^\d{1,18}$/.test(req.params.id)) return res.status(400).json({ error: 'invalid_order' });
     const outcome = await withTransaction(async (client) => {
         const { rows } = await client.query(
-            `UPDATE orders SET status = 'cancelled', updated_at = now()
-             WHERE id = $1 AND user_id = $2 AND status = 'pending' RETURNING id`,
+            `UPDATE orders SET status = 'cancelled',
+                    payment_status = CASE WHEN payment_status = 'awaiting' THEN 'expired' ELSE payment_status END,
+                    updated_at = now()
+             WHERE id = $1 AND user_id = $2 AND status = 'pending' AND payment_status <> 'paid'
+             RETURNING id, payment_session_id`,
             [req.params.id, req.user.id],
         );
         if (rows.length === 0) return null;
         await releaseOrder(client, rows[0].id);
-        return rows[0].id;
+        return rows[0];
     });
     if (!outcome) {
         const exists = await query('SELECT status FROM orders WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
         if (exists.rowCount === 0) return res.status(404).json({ error: 'order_not_found' });
         return res.status(409).json({ error: 'order_not_cancellable', status: exists.rows[0].status });
     }
-    const [order] = await loadOrders('WHERE id = $1', [outcome]);
-    res.json({ order });
+    if (outcome.payment_session_id && paymentsEnabled()) await expireCheckoutSession(outcome.payment_session_id);
+    res.json({ order: await loadOrder(outcome.id) });
 });
 
 // Return / exchange request for a shipped or completed order, within 30 days.
@@ -201,10 +238,7 @@ router.post('/:id/returns', async (req, res) => {
     if (!['return', 'exchange'].includes(kind)) return res.status(400).json({ error: 'invalid_kind' });
     if (!reason) return res.status(400).json({ error: 'reason_required' });
 
-    const { rows } = await query(
-        `SELECT status, updated_at FROM orders WHERE id = $1 AND user_id = $2`,
-        [req.params.id, req.user.id],
-    );
+    const { rows } = await query('SELECT status, updated_at FROM orders WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
     const order = rows[0];
     if (!order) return res.status(404).json({ error: 'order_not_found' });
     if (!['shipped', 'completed'].includes(order.status)) return res.status(409).json({ error: 'not_returnable' });
@@ -213,15 +247,14 @@ router.post('/:id/returns', async (req, res) => {
     }
     try {
         await query(
-            `INSERT INTO return_requests (order_id, user_id, kind, reason, details) VALUES ($1, $2, $3, $4, $5)`,
+            'INSERT INTO return_requests (order_id, user_id, kind, reason, details) VALUES ($1, $2, $3, $4, $5)',
             [req.params.id, req.user.id, kind, reason, details],
         );
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'return_already_open' });
         throw err;
     }
-    const [dto] = await loadOrders('WHERE id = $1', [req.params.id]);
-    res.status(201).json({ order: dto });
+    res.status(201).json({ order: await loadOrder(req.params.id) });
 });
 
 export default router;

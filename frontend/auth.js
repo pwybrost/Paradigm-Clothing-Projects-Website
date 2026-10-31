@@ -32,7 +32,7 @@ export async function api(path, { method = 'GET', body } = {}) {
 // Returns { success: true } or { success: false, error: 'email_taken' | 'invalid_email' | ... }
 export async function signup(username, email, phone, password) {
     const { ok, data } = await api('/api/auth/signup', { method: 'POST', body: { username, email, phone, password } });
-    return ok ? { success: true } : { success: false, error: data.error };
+    return ok ? { success: true, verificationSent: Boolean(data.verificationSent) } : { success: false, error: data.error };
 }
 
 // Returns { success: true, user } or { success: false, error: 'invalid_credentials' | 'network_error' | ... }
@@ -62,7 +62,7 @@ export async function logout() {
 // Prices, stock, discounts and shipping are calculated by the server.
 export async function placeOrder(payload) {
     const { ok, data } = await api('/api/orders', { method: 'POST', body: payload });
-    return ok ? { success: true, order: data.order } : { success: false, error: data.error, data };
+    return ok ? { success: true, order: data.order, data } : { success: false, error: data.error, data };
 }
 
 export const quoteCart = (items, discountCode) => api('/api/orders/quote', { method: 'POST', body: { items, discountCode } });
@@ -87,3 +87,13 @@ export const cancelOrder = (id) => api(`/api/orders/${encodeURIComponent(id)}/ca
 export const getWishlist = () => api('/api/wishlist');
 export const addToWishlist = (productId) => api(`/api/wishlist/${productId}`, { method: 'PUT' });
 export const removeFromWishlist = (productId) => api(`/api/wishlist/${productId}`, { method: 'DELETE' });
+
+// ---------- Email links & payments ----------
+export const forgotPassword = (email) => api('/api/auth/forgot', { method: 'POST', body: { email } });
+export const resetPassword = (token, password) => api('/api/auth/reset', { method: 'POST', body: { token, password } });
+export const confirmEmail = (token) => api('/api/auth/verify', { method: 'POST', body: { token } });
+export const confirmPhone = (token) => api('/api/auth/confirm-phone', { method: 'POST', body: { token } });
+export const resendVerification = () => api('/api/auth/resend-verification', { method: 'POST' });
+export const requestPhoneChange = (phone) => api('/api/profile/phone', { method: 'POST', body: { phone } });
+export const payOrder = (id) => api(`/api/orders/${encodeURIComponent(id)}/pay`, { method: 'POST' });
+export const checkPayment = (id) => api(`/api/orders/${encodeURIComponent(id)}/payment`);

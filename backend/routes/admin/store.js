@@ -4,6 +4,8 @@ import { query } from '../../db.js';
 import { getSettings, mergeSettings, saveSettings } from '../../lib/settings.js';
 import { str } from '../../lib/validation.js';
 import { toCsv } from './orders.js';
+import { baseUrl, config, emailEnabled, paymentsEnabled } from '../../config.js';
+import { newsletterEmail, replyEmail, sendBatch, sendEmail, unsubscribeUrl } from '../../lib/email.js';
 
 const router = Router();
 
@@ -130,6 +132,52 @@ router.get('/subscribers.csv', async (_req, res) => {
 router.delete('/subscribers/:email', async (req, res) => {
     await query('DELETE FROM newsletter_subscribers WHERE email = $1', [str(req.params.email).toLowerCase()]);
     res.json({ ok: true });
+});
+
+// Reply to a contact message by email (sent from EMAIL_FROM, replies come back to EMAIL_REPLY_TO).
+router.post('/messages/:id/reply', async (req, res) => {
+    if (!/^\d{1,18}$/.test(req.params.id)) return res.status(400).json({ error: 'invalid_message' });
+    if (!emailEnabled()) return res.status(503).json({ error: 'email_unavailable' });
+    const message = str(req.body?.message);
+    if (message.length < 2 || message.length > 5000) return res.status(400).json({ error: 'invalid_message' });
+    const { rows } = await query('SELECT email, subject FROM contact_messages WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'message_not_found' });
+    const subject = str(req.body?.subject).slice(0, 150) || `Re: ${rows[0].subject || 'Your message to Paradigm'}`;
+    const sent = await sendEmail({ to: rows[0].email, ...replyEmail(subject, message) });
+    if (!sent?.ok) return res.status(502).json({ error: 'email_failed' });
+    await query('UPDATE contact_messages SET is_read = TRUE WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+});
+
+// ---------- Newsletter sending ----------
+// { subject, message, test: true } sends only to the owner's own email first.
+router.post('/newsletter', async (req, res) => {
+    if (!emailEnabled()) return res.status(503).json({ error: 'email_unavailable' });
+    const subject = str(req.body?.subject).slice(0, 150);
+    const message = str(req.body?.message);
+    if (!subject || message.length < 5 || message.length > 10000) return res.status(400).json({ error: 'invalid_newsletter' });
+    const base = baseUrl(req);
+    const recipients = req.body?.test === true
+        ? [req.user.email.toLowerCase()]
+        : (await query('SELECT email FROM newsletter_subscribers ORDER BY created_at')).rows.map((r) => r.email);
+    if (recipients.length === 0) return res.status(400).json({ error: 'no_subscribers' });
+    const result = await sendBatch(recipients.map((to) => ({ to, ...newsletterEmail(subject, message, unsubscribeUrl(base, to)) })));
+    res.json({ ok: !result.errors?.length, sent: result.sent, total: recipients.length, errors: result.errors ?? [] });
+});
+
+// ---------- Integrations status (shown in Store Settings) ----------
+router.get('/system', (_req, res) => {
+    res.json({
+        email: emailEnabled(),
+        emailFrom: config.emailFrom || null,
+        payments: paymentsEnabled(),
+        paymentsLive: config.paymongoSecretKey.startsWith('sk_live_'),
+        paymentMethods: config.paymongoMethods,
+        webhook: Boolean(config.paymongoWebhookSecret),
+        cron: Boolean(config.cronSecret),
+        appUrl: config.appUrl || null,
+        ownerEmails: config.adminEmails.length,
+    });
 });
 
 // ---------- Review moderation ----------

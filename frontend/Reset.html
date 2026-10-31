@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Reset Passcode | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <script>if(localStorage.getItem('paradigm_theme') === 'light') document.documentElement.classList.add('light-mode');</script>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/account.css" />
+</head>
+<body>
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3>Passcode Recovery</h3>
+    </div>
+    <div class="wrapper">
+        <div class="panel max-w-[480px] mx-auto">
+            <div class="panel-title">Set New Passcode</div>
+            <form id="resetForm">
+                <div class="field"><label for="newPass">New Passcode</label><input type="password" class="search-input" id="newPass" autocomplete="new-password" required /></div>
+                <div class="field"><label for="newPass2">Repeat Passcode</label><input type="password" class="search-input" id="newPass2" autocomplete="new-password" required /></div>
+                <p class="panel-note mb-[15px]">At least 8 characters, 2 numbers and 2 symbols. You'll be signed out on all devices.</p>
+                <button class="btn btn-blue" type="submit" id="resetBtn">Update Passcode</button>
+                <p class="panel-note mt-[15px] text-center" id="resetStatus"></p>
+            </form>
+        </div>
+    </div>
+    <script type="module">
+        import { resetPassword } from './auth.js';
+        import { playSound } from './ui.js';
+
+        const $ = (id) => document.getElementById(id);
+        const token = new URLSearchParams(location.search).get('token') || '';
+        // Remove the token from the address bar and history.
+        history.replaceState(null, '', location.pathname);
+        const PASS_RE = /^(?=(?:.*?\d){2})(?=(?:.*?[!@#$%^&*(),.?":{}|<>]){2}).{8,}$/;
+        const status = (text, warn = false) => { $('resetStatus').textContent = text; $('resetStatus').classList.toggle('is-warn', warn); };
+        if (!token) status('This link is missing its code. Request a new one from the login page.', true);
+
+        $('resetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pass = $('newPass').value;
+            if (!PASS_RE.test(pass)) { playSound('error'); status('Passcode needs 8+ characters, 2 numbers and 2 symbols.', true); return; }
+            if (pass !== $('newPass2').value) { playSound('error'); status('Passcodes do not match.', true); return; }
+            $('resetBtn').disabled = true;
+            const r = await resetPassword(token, pass);
+            if (r.ok) {
+                playSound('success');
+                status('Passcode updated. Routing to login...');
+                setTimeout(() => { window.location.href = 'Login.html'; }, 2000);
+            } else {
+                $('resetBtn').disabled = false;
+                playSound('error');
+                status(r.data.error === 'invalid_token' ? 'This link has expired or was already used. Request a new one.' : 'Update failed. Retry.', true);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -279,3 +279,47 @@ BEGIN
         INSERT INTO schema_flags (name) VALUES ('b5_original_catalogue');
     END IF;
 END $$;
+
+-- ---------- Batch 4: email + payments ----------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+
+-- Accounts that existed before email verification was introduced are treated as verified.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM schema_flags WHERE name = 'b4_verify_existing_users') THEN
+        UPDATE users SET email_verified_at = created_at WHERE email_verified_at IS NULL;
+        INSERT INTO schema_flags (name) VALUES ('b4_verify_existing_users');
+    END IF;
+END $$;
+
+-- One-time links sent by email (verify email, reset passcode, confirm phone change). Only hashes are stored.
+CREATE TABLE IF NOT EXISTS email_tokens (
+    token_hash TEXT        PRIMARY KEY,
+    user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    purpose    TEXT        NOT NULL CHECK (purpose IN ('verify', 'reset', 'phone')),
+    payload    JSONB,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at    TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS email_tokens_user_idx ON email_tokens (user_id, purpose);
+
+-- Payment tracking. payment_status: unpaid (COD not yet collected), awaiting (online, not paid yet),
+-- paid, failed, expired (online order not paid in time and cancelled).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status     TEXT NOT NULL DEFAULT 'unpaid';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_session_id TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference  TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at            TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS orders_payment_session_idx ON orders (payment_session_id);
+CREATE INDEX IF NOT EXISTS orders_awaiting_idx ON orders (created_at) WHERE payment_status = 'awaiting';
+UPDATE orders SET payment_status = 'paid', paid_at = coalesce(paid_at, updated_at)
+    WHERE payment_status = 'unpaid' AND status IN ('paid', 'shipped', 'completed');
+
+-- Processed PayMongo webhook events, so a retried delivery is handled once.
+CREATE TABLE IF NOT EXISTS payment_events (
+    id          TEXT        PRIMARY KEY,
+    type        TEXT        NOT NULL,
+    received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- When the current online payment attempt started (unpaid orders expire relative to this).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_started_at TIMESTAMPTZ;

@@ -14,6 +14,14 @@ export async function migrate() {
         await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_ID]);
         await client.query(sql);
         console.log('[migrate] schema is up to date');
+        // Owner accounts listed in ADMIN_EMAILS (Vercel env) get the admin role on every deploy.
+        if (config.adminEmails.length) {
+            const { rows } = await client.query(
+                "UPDATE users SET role = 'admin', updated_at = now() WHERE lower(email) = ANY($1::text[]) AND role <> 'admin' RETURNING email",
+                [config.adminEmails],
+            );
+            for (const r of rows) console.log(`[migrate] promoted ${r.email} to admin`);
+        }
     } finally {
         await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_ID]).catch(() => {});
         client.release();
