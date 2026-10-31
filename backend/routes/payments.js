@@ -1,5 +1,7 @@
 // PayMongo webhook + scheduled cleanup.
-import { Router, raw } from 'express';
+import express from 'express';
+
+const { Router, raw } = express;
 import { config } from '../config.js';
 import { query } from '../db.js';
 import { emailOrderPlaced, expireUnpaidOrders, markOrderPaid } from '../lib/orders.js';

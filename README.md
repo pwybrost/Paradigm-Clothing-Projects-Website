@@ -113,3 +113,13 @@ Store Settings → Integrations in the owner console shows what's connected. All
 - **PayMongo:** `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`. Create a webhook for `https://prdgm.vercel.app/api/payments/webhook`
   with the event `checkout_session.payment.paid`.
 - **Also set:** `APP_URL`, `ADMIN_EMAILS`, `APP_SECRET`, `CRON_SECRET`.
+
+## Troubleshooting
+
+Open `/api/health` on any deployment. It reports, without secrets:
+- whether `DATABASE_URL` is set and the database connects
+- whether the tables exist, and how many products, photos and owners there are
+- whether email and payments are configured
+
+If the archive shows "ARCHIVE OFFLINE", the same reason is printed under the message.
+If a fresh database is missing tables or photos, the API creates them on the first request.

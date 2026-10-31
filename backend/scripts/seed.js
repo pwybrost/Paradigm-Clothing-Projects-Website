@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { config } from '../config.js';
 import { DEFAULT_SIZES, DEFAULT_STOCK, ORIGINAL_RELEASE, products } from '../data/products.js';
 import { closePool, withTransaction } from '../db.js';
@@ -43,7 +44,7 @@ async function convertImage(sharp, fileName) {
     return { data, mimeType: 'image/webp', width: info.width, height: info.height, originalSize: original.length };
 }
 
-async function seed() {
+export async function seedCatalog() {
     const sharp = await loadSharp();
 
     await withTransaction(async (client) => {
@@ -92,10 +93,13 @@ async function seed() {
     });
 }
 
-if (!config.databaseUrl && process.argv.includes('--if-configured')) {
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (!isMain) {
+    // imported by the API bootstrap; don't run automatically
+} else if (!config.databaseUrl && process.argv.includes('--if-configured')) {
     console.warn('[seed] DATABASE_URL not set; skipping seed');
 } else {
-    seed()
+    seedCatalog()
         .catch((err) => {
             console.error('[seed] failed:', err.message);
             process.exitCode = 1;

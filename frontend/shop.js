@@ -99,7 +99,10 @@ function preloadImages(products) {
 
 async function fetchProducts() {
     const res = await fetch('/api/products', { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`Product API responded with ${res.status}`);
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(`Product API responded with ${res.status}`), { status: res.status, code: body.code || body.error });
+    }
     const data = await res.json();
     if (!Array.isArray(data)) throw new Error('Product API returned an unexpected payload');
     return data;
@@ -126,7 +129,12 @@ async function init() {
     renderAnnouncement();
 
     if (loadError) {
-        $('product-list').innerHTML = '<div class="no-matches">--- [ ARCHIVE OFFLINE · RETRY LATER ] ---</div>';
+        $('product-list').innerHTML = '<div class="no-matches">--- [ ARCHIVE OFFLINE · RETRY LATER ] ---<div class="guide-note mt-5 normal-case tracking-[1px]" id="offlineReason"></div></div>';
+        // Show why (from /api/health) so setup problems are easy to spot. No secrets are exposed.
+        fetch('/api/health').then((r) => r.json()).then((h) => {
+            const reason = h.database?.hint || h.detail || h.database?.message;
+            $('offlineReason').textContent = `Error ${loadError.status ?? 'network'}${loadError.code ? ` · ${loadError.code}` : ''}${reason ? ` · ${reason}` : ''}`;
+        }).catch(() => { $('offlineReason').textContent = `Error ${loadError.status ?? 'network'} · the API did not respond. Open /api/health for details.`; });
     } else {
         // Owner console: only downloaded for admin accounts. The server checks the role on every admin request.
         if (isAdmin) {
@@ -454,7 +462,8 @@ $('productDetailContent').addEventListener('click', async (e) => {
         else { playSound('error'); toast('Request failed. Retry.', 'error'); }
     } else if (t.closest('[data-share]')) {
         playSound();
-        const url = `${location.origin}${location.pathname}?item=${p.id}`;
+        // /p/<id> shows this item's own photo and price when shared on Facebook/Messenger.
+        const url = `${location.origin}/p/${p.id}`;
         try {
             if (navigator.share) await navigator.share({ title: `${p.title} | Paradigm`, url });
             else { await navigator.clipboard.writeText(url); toast('Link copied'); }

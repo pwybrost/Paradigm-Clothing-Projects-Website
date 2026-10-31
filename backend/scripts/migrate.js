@@ -28,7 +28,7 @@ export async function migrate() {
     }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     // --if-configured: used by the Vercel build so a deploy without a database doesn't fail outright.
     if (!config.databaseUrl && process.argv.includes('--if-configured')) {
         console.warn('[migrate] DATABASE_URL not set; skipping migration');
