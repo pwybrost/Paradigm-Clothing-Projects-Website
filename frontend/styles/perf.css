@@ -1,0 +1,56 @@
+/* Rendering performance. Nothing here changes how the site looks on a normal device.
+   Un-layered so it applies on top of every page's styles. */
+
+/* 1. The animated background (blur + brightness + saturate on a full-screen layer) is the most
+      expensive thing on every page. Give it its own GPU layer and isolate it so it doesn't force
+      the rest of the page to repaint on every frame. */
+body::before {
+    will-change: transform, filter, opacity;
+    backface-visibility: hidden;
+    contain: strict;
+    pointer-events: none;
+}
+body::after { contain: strict; pointer-events: none; }
+
+/* 2. Skip layout/paint work for cards and sections that are off-screen (huge win for theme
+      switching and scrolling: the browser only restyles what you can see). */
+.product-card, .mini-card, .order-card, .cust-card, .review {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 330px;
+}
+.mini-card { contain-intrinsic-size: auto 150px; }
+.order-card, .cust-card { contain-intrinsic-size: auto 60px; }
+.review { contain-intrinsic-size: auto 70px; }
+
+/* 3. While the theme is switching, skip the hundreds of 0.3s colour transitions at once
+      (they made the theme button the slowest interaction on the page). */
+html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; }
+
+/* 4. Low-end devices (2-4 CPU cores, <=4 GB RAM, or data saver), set by a tiny script in each page head,
+      and people who ask their OS for reduced motion: keep the same look, but hold the background
+      still and drop live blur effects that have to be recalculated every frame. */
+html.perf-lite body::before { animation: none; filter: brightness(0.75) saturate(1.6) blur(2px); opacity: 0.85; transform: scale(1.07); }
+html.perf-lite.light-mode body::before { filter: grayscale(1) brightness(1.2) blur(2px); opacity: 0.6; }
+html.perf-lite .header-btn, html.perf-lite .theme-btn, html.perf-lite .container,
+html.perf-lite .modal-overlay, html.perf-lite .user-menu { backdrop-filter: none; -webkit-backdrop-filter: none; }
+html.perf-lite .modal-overlay { background: rgba(0, 0, 0, 0.9); }
+html.perf-lite.light-mode .modal-overlay { background: rgba(15, 23, 42, 0.5); }
+html.perf-lite .loader-text { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    body::before { animation: none !important; filter: brightness(0.75) saturate(1.6) blur(2px); opacity: 0.85; transform: scale(1.07); }
+    html.light-mode body::before { filter: grayscale(1) brightness(1.2) blur(2px); opacity: 0.6; }
+    .grid-enter, .tab-panel.active, .modal-content { animation-duration: 0.01ms !important; }
+}
+
+/* Offline status bar (see ui.js initConnectivity). */
+.net-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2500; padding: 8px 14px; text-align: center;
+    background: rgba(8, 8, 8, 0.96); border-top: 1px solid #e0a84a; color: #e0a84a;
+    font-family: monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    transform: translateY(100%); transition: transform 0.3s ease;
+}
+.net-bar.show { transform: translateY(0); }
+.net-bar.is-syncing { border-top-color: #3b82f6; color: #3b82f6; }
+html.light-mode .net-bar { background: #fffbeb; color: #b45309; border-top-color: #f59e0b; }
+html.light-mode .net-bar.is-syncing { background: #eff6ff; color: #1d4ed8; border-top-color: #2563eb; }

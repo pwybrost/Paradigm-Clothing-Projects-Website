@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Information | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="About Paradigm Clothing Projects, FAQ, shipping, returns and exchanges, contact, terms and privacy policy." />
+    <link rel="canonical" href="https://prdgm.vercel.app/Info.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Paradigm Clothing Projects" />
+    <meta property="og:title" content="Paradigm | Store Information" />
+    <meta property="og:description" content="Shipping, returns, FAQ and contact for Paradigm Clothing Projects." />
+    <meta property="og:url" content="https://prdgm.vercel.app/Info.html" />
+    <meta property="og:image" content="https://prdgm.vercel.app/api/products/901/image" />
+    <script>(function(d){var h=d.documentElement,n=navigator;try{if(localStorage.getItem('paradigm_theme')==='light')h.classList.add('light-mode')}catch(e){}var m=null;try{m=localStorage.getItem('paradigm_perf')}catch(e){}if(m==='lite'||(m!=='full'&&((n.hardwareConcurrency||8)<=4||(n.deviceMemory||8)<=4||(n.connection&&n.connection.saveData))))h.classList.add('perf-lite')})(document);</script>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/account.css" />
+    <link rel="stylesheet" href="styles/menu.css" />
+    <link rel="stylesheet" href="styles/shop.css" />
+    <script defer src="analytics.js"></script>
+    <style>
+        @layer components {
+            .info-body { max-width: 820px; margin: 0 auto; }
+            .info-body h3 { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; margin: 26px 0 10px; color: #fff; }
+            .info-body h3:first-child { margin-top: 0; }
+            .info-body p, .info-body li { font-size: 12px; color: #aaa; line-height: 1.9; letter-spacing: 0.5px; }
+            .info-body ul { padding-left: 18px; margin-bottom: 8px; }
+            .info-body strong { color: #3b82f6; font-weight: normal; }
+            .faq-item { border-bottom: 1px solid #1a1a1a; }
+            .faq-q { width: 100%; text-align: left; background: none; border: none; color: #fff; padding: 16px 0; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; font-family: inherit; }
+            .faq-q span { color: #666; font-family: monospace; transition: transform 0.3s; }
+            .faq-item.open .faq-q span { transform: rotate(90deg); color: #3b82f6; }
+            .faq-a { display: none; padding: 0 0 16px; }
+            .faq-item.open .faq-a { display: block; animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+            .tabs { flex-wrap: wrap; }
+            html.light-mode .info-body h3, html.light-mode .faq-q { color: #000; }
+            html.light-mode .info-body p, html.light-mode .info-body li { color: #333; }
+            @media (max-width: 760px) {
+                .header-btn { top: 12px; padding: 10px 12px; font-size: 9px; }
+                .header-actions { top: 12px; right: 12px; }
+                .page-header { padding-top: 80px; }
+                .page-header h1 { font-size: 30px; letter-spacing: 8px; }
+                .tab-btn { flex: 1 1 33%; padding: 12px 6px; letter-spacing: 2px; }
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="styles/light.css" />
+    <link rel="stylesheet" href="styles/perf.css" />
+    <script defer src="pwa.js"></script>
+</head>
+<body>
+
+    <a class="header-btn btn-left" href="index.html" id="backBtn">◄ Archive</a>
+    <div class="header-actions" id="headerActions">
+        <button class="header-btn" id="themeToggleBtn">🌓 Theme</button>
+    </div>
+
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3>Store Information</h3>
+    </div>
+
+    <div class="wrapper">
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="about">About</button>
+            <button class="tab-btn" data-tab="faq">FAQ</button>
+            <button class="tab-btn" data-tab="shipping">Shipping &amp; Returns</button>
+            <button class="tab-btn" data-tab="contact">Contact</button>
+            <button class="tab-btn" data-tab="terms">Terms</button>
+            <button class="tab-btn" data-tab="privacy">Privacy</button>
+        </nav>
+
+        <section class="tab-panel active" id="tab-about">
+            <div class="panel info-body">
+                <h3>Paradigm Clothing Projects</h3>
+                <p>Paradigm is an independent clothing label from the Philippines. We design graphic tees that mix street culture, anime, car culture and art, from original pieces to licensed-style collab tributes, released as seasonal archives and limited drops.</p>
+                <h3>How we work</h3>
+                <p>Every design starts as an original artwork. We print in small batches, so popular sizes can sell out. If something you like is gone, tap <strong>Notify Me</strong> on the item and we'll let you know when it's back.</p>
+                <h3>Stay in the loop</h3>
+                <p>Join the newsletter at the bottom of any page for drop dates, restocks and member-only codes.</p>
+            </div>
+        </section>
+
+        <section class="tab-panel" id="tab-faq">
+            <div class="panel info-body" id="faqList"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-shipping">
+            <div class="panel info-body">
+                <h3>Shipping</h3>
+                <ul>
+                    <li>We ship nationwide within the Philippines.</li>
+                    <li>Flat shipping fee: <strong id="infoFee">₱150</strong> per order.</li>
+                    <li id="infoFreeLine">Free shipping on orders of <strong id="infoFree">₱2,000</strong> or more (after discounts).</li>
+                    <li>Orders are usually packed within 1–3 business days. Delivery takes about 2–5 business days in Metro Manila and 5–10 business days for provincial areas.</li>
+                    <li>Once your order ships, the courier and tracking number appear on your <strong>My Orders</strong> page.</li>
+                    <li>Pre-order items ship once restocked. We'll keep you updated on the order.</li>
+                </ul>
+                <h3>Payment</h3>
+                <p>We currently accept <strong>Cash on Delivery</strong>. Please prepare the exact amount shown on your order. Online payment is coming soon.</p>
+                <h3>Cancellations</h3>
+                <p>You can cancel an order yourself from My Orders while it's still <strong>pending</strong>. Once it's paid or shipped, contact us instead.</p>
+                <h3>Returns &amp; exchanges</h3>
+                <ul>
+                    <li>Request a return or exchange from My Orders within <strong>30 days</strong> of your order being shipped.</li>
+                    <li>Items must be unworn, unwashed and in their original condition with tags.</li>
+                    <li>Size exchanges depend on stock. If your size is out, we'll offer a refund or another item.</li>
+                    <li>Damaged, defective or wrong items: we cover return shipping. Please include photos in your request details.</li>
+                    <li>Approved refunds for cash-on-delivery orders are sent by bank transfer or e-wallet (we'll ask for your details).</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="tab-panel" id="tab-contact">
+            <div class="panel info-body max-w-[640px]">
+                <h3>Send a transmission</h3>
+                <p class="mb-5">Questions about an order, sizing or collabs? Message us and we'll reply by email. Include your order number if it's about an order.</p>
+                <form id="contactForm">
+                    <div class="field"><label for="cName">Name</label><input class="search-input" id="cName" maxlength="80" required autocomplete="name" /></div>
+                    <div class="field"><label for="cEmail">Email</label><input class="search-input" id="cEmail" type="email" maxlength="254" required autocomplete="email" /></div>
+                    <div class="field"><label for="cSubject">Subject</label><input class="search-input" id="cSubject" maxlength="120" placeholder="e.g. Order #12 size exchange" /></div>
+                    <div class="field"><label for="cMessage">Message</label><textarea class="search-input" id="cMessage" maxlength="3000" required></textarea></div>
+                    <button class="btn btn-blue btn-auto" type="submit" id="contactBtn">Transmit Message</button>
+                </form>
+                <div class="footer-social mt-5" id="contactSocial"></div>
+            </div>
+        </section>
+
+        <section class="tab-panel" id="tab-terms">
+            <div class="panel info-body">
+                <h3>Terms of Sale</h3>
+                <p>By placing an order on this website you agree to these terms.</p>
+                <ul>
+                    <li><strong>Orders.</strong> An order is confirmed when it appears in My Orders. We may cancel an order if an item turns out to be unavailable, the price was displayed in error, or the delivery details can't be verified. If that happens, we'll tell you.</li>
+                    <li><strong>Prices.</strong> Prices are in Philippine Pesos (₱) and include applicable taxes. Shipping fees are shown at checkout.</li>
+                    <li><strong>Discount codes.</strong> One code per order. Codes have no cash value and may have a minimum spend, usage limit or expiry date.</li>
+                    <li><strong>Pre-orders and drops.</strong> Pre-order items ship when restocked. Items on a countdown can't be ordered before their drop time.</li>
+                    <li><strong>Colours.</strong> Screens show colours differently, so small differences from the photos are possible.</li>
+                    <li><strong>Accounts.</strong> Keep your passcode private. You're responsible for orders placed with your account.</li>
+                    <li><strong>Reviews.</strong> Only verified buyers can review. We may remove reviews that are abusive, off-topic or contain personal information.</li>
+                    <li><strong>Designs.</strong> All original artwork belongs to Paradigm Clothing Projects. Please don't reproduce it without permission.</li>
+                </ul>
+                <p>Questions about these terms? Use the Contact tab.</p>
+            </div>
+        </section>
+
+        <section class="tab-panel" id="tab-privacy">
+            <div class="panel info-body">
+                <h3>Privacy Policy</h3>
+                <p>We respect your privacy and handle personal data in line with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173).</p>
+                <h3>What we collect</h3>
+                <ul>
+                    <li>Account details: name, email, phone number, optional profile picture, bio and size preference.</li>
+                    <li>Order details: items, shipping address, contact number and delivery notes.</li>
+                    <li>Your wishlist, reviews, restock requests and messages you send us.</li>
+                    <li>Newsletter email, if you subscribe.</li>
+                    <li>Basic, anonymous visit statistics (pages viewed) to improve the site.</li>
+                </ul>
+                <h3>How we use it</h3>
+                <p>To process and deliver your orders, provide your account features, answer your messages, send updates you asked for, and prevent fraud. We share delivery details only with the courier handling your order. We never sell your data.</p>
+                <h3>How we protect it</h3>
+                <p>Passcodes are stored as one-way hashes, not plain text. Sessions use secure, HttpOnly cookies. Data is stored on encrypted cloud infrastructure, and only the store owner can access order and customer records.</p>
+                <h3>Cookies</h3>
+                <p>We use one essential cookie to keep you logged in, and your browser's local storage for your cart, theme and recently viewed items. We don't use advertising cookies.</p>
+                <h3>Your rights</h3>
+                <p>You can view and update your profile at any time, delete your account using "Reset Profile" on the login page, unsubscribe from the newsletter, or contact us to access, correct or delete your data. Order records may be kept as required for accounting.</p>
+            </div>
+        </section>
+    </div>
+
+    <footer class="site-footer" id="siteFooter"></footer>
+
+    <script type="module">
+        import { getCurrentUser, api, sendOrQueue } from './auth.js';
+        import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, mountLoginButton, renderFooter, getStoreSettings, toast } from './ui.js';
+
+        const $ = (id) => document.getElementById(id);
+        const TABS = ['about', 'faq', 'shipping', 'contact', 'terms', 'privacy'];
+
+        const FAQ = [
+            ['Do I need an account to shop?', 'You can browse without one. To check out, save a wishlist, track orders or leave reviews, create a free account.'],
+            ['How do I pick the right size?', 'Open any item and tap "Size Guide" for chest and length measurements. Our tees run slightly oversized. If you\'re between sizes, size up for a looser fit.'],
+            ['How do I pay?', 'Cash on Delivery for now. You pay the courier when the parcel arrives. Online payment is coming soon.'],
+            ['How much is shipping?', 'SHIPPING_LINE'],
+            ['How do I track my order?', 'Open My Orders from the profile menu. Once shipped, the courier and tracking number appear on the order.'],
+            ['Can I cancel my order?', 'Yes, while it\'s still pending, using the Cancel Order button on My Orders. After that, message us through the Contact tab.'],
+            ['Can I exchange for another size?', 'Yes. Within 30 days of shipping, open the order in My Orders and tap Return / Exchange. Items must be unworn with tags.'],
+            ['An item is sold out. Will it come back?', 'Often, yes. Tap "Notify Me When Restocked" on the item and pick your size so we know what to restock.'],
+            ['How do discount codes work?', 'Enter the code in your cart and tap Apply. One code per order. Some codes need a minimum spend or expire.'],
+            ['What is a drop?', 'Some items release at a set time. They show a countdown and can be ordered once it reaches zero. Join the newsletter for drop alerts.'],
+        ];
+
+        initThemeToggle($('themeToggleBtn'));
+        $('backBtn').addEventListener('click', () => playSound('click'));
+
+        const user = await getCurrentUser();
+        if (user) mountUserMenu(user, { current: 'info' });
+        else mountLoginButton('Info.html');
+        if (user) {
+            $('cName').value = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+            $('cEmail').value = user.email;
+        }
+
+        const settings = await getStoreSettings();
+        renderFooter($('siteFooter'), settings);
+        const fee = settings?.shippingFee ?? 150;
+        const free = settings?.freeShippingMin ?? 2000;
+        $('infoFee').textContent = peso(fee);
+        if (free > 0) $('infoFree').textContent = peso(free); else $('infoFreeLine').hidden = true;
+        const shippingLine = `A flat ${peso(fee)} per order${free > 0 ? `, free on orders of ${peso(free)} or more` : ''}. See the Shipping & Returns tab for delivery times.`;
+        $('faqList').innerHTML = FAQ.map(([q, a], i) => `
+            <div class="faq-item${i === 0 ? ' open' : ''}">
+                <button class="faq-q">${escapeHtml(q)} <span>►</span></button>
+                <div class="faq-a"><p>${escapeHtml(a === 'SHIPPING_LINE' ? shippingLine : a)}</p></div>
+            </div>`).join('');
+        $('faqList').addEventListener('click', (e) => {
+            const q = e.target.closest('.faq-q');
+            if (!q) return;
+            playSound('click');
+            q.parentElement.classList.toggle('open');
+        });
+        const social = settings?.social ?? {};
+        $('contactSocial').innerHTML = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['facebook', 'Facebook']]
+            .filter(([k]) => social[k]).map(([k, l]) => `<a href="${escapeHtml(social[k])}" target="_blank" rel="noopener noreferrer">${l}</a>`).join('');
+
+        function openTab(name, sound = true) {
+            if (!TABS.includes(name)) name = 'about';
+            if (sound) playSound('click');
+            document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+            history.replaceState(null, '', `#${name}`);
+        }
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
+        window.addEventListener('hashchange', () => openTab(location.hash.slice(1), false));
+        openTab(location.hash.slice(1) || 'about', false);
+
+        $('contactForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = $('contactBtn');
+            if (btn.disabled) return;
+            btn.disabled = true;
+            const { ok, data, queued } = await sendOrQueue('/api/store/contact', {
+                method: 'POST', label: 'Message',
+                body: { name: $('cName').value, email: $('cEmail').value, subject: $('cSubject').value, message: $('cMessage').value },
+            });
+            btn.disabled = false;
+            if (queued) { toast('Offline · your message will be sent when the connection returns'); $('cSubject').value = ''; $('cMessage').value = ''; }
+            else if (ok) { playSound('success'); toast('Message transmitted. We\'ll reply by email'); $('cSubject').value = ''; $('cMessage').value = ''; }
+            else {
+                playSound('error');
+                const msg = { invalid_email: 'Enter a valid email', invalid_message: 'Message must be 5–3000 characters', name_required: 'Enter your name', too_many_requests: 'Too many messages. Try later' };
+                toast(msg[data.error] || 'Send failed. Retry.', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

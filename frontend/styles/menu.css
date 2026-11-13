@@ -1,0 +1,70 @@
+/* Profile button + dropdown, wishlist hearts and toast.
+   Shared by index.html, Profile.html and Orders.html. Uses the same look as .header-btn. */
+@layer components {
+    .header-actions { position: fixed; top: 20px; right: 20px; display: flex; gap: 10px; align-items: flex-start; z-index: 1000; }
+    .header-actions .header-btn { position: static; }
+
+    .user-menu-wrap { position: relative; }
+    .btn-profile { display: flex; align-items: center; gap: 8px; border-color: rgba(59, 130, 246, 0.6); }
+    .menu-avatar { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.4); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; }
+    .menu-avatar-empty { color: #3b82f6; border-color: #3b82f6; }
+    .btn-profile:hover .menu-avatar-empty { color: #000; border-color: #000; }
+
+    .user-menu {
+        position: absolute; top: calc(100% + 8px); right: 0; min-width: 240px;
+        background: rgba(8,8,8,0.96); border: 1px solid #333; backdrop-filter: blur(8px);
+        box-shadow: 0 0 30px rgba(0,0,0,0.9); padding: 6px 0;
+        opacity: 0; transform: translateY(-6px); pointer-events: none;
+        transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .user-menu.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .user-menu-head { padding: 12px 16px 14px; border-bottom: 1px solid #222; margin-bottom: 6px; }
+    .user-menu-name { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #fff; margin-bottom: 4px; }
+    .user-menu-mail { font-size: 10px; color: #666; font-family: monospace; margin-bottom: 8px; word-break: break-all; }
+    .user-menu-item {
+        display: block; width: 100%; text-align: left; padding: 10px 16px; background: none; border: none;
+        color: #aaa; text-decoration: none; font-family: monospace; font-size: 10px; letter-spacing: 2px;
+        text-transform: uppercase; cursor: pointer; transition: all 0.2s ease;
+    }
+    .user-menu-item:hover { background: #fff; color: #000; }
+    .user-menu-item.is-current { color: #3b82f6; }
+    .user-menu-item.is-danger { color: #ff4d4d; border-top: 1px solid #222; margin-top: 6px; }
+    .user-menu-item.is-danger:hover { background: #8b0000; color: #fff; }
+
+    .role-badge { display: inline-block; font-family: monospace; font-size: 9px; letter-spacing: 2px; padding: 3px 8px; border: 1px solid #444; color: #888; }
+    .role-badge.is-admin { border-color: #3b82f6; color: #3b82f6; box-shadow: 0 0 10px rgba(59,130,246,0.3); }
+
+    /* Wishlist heart on product cards */
+    .product-card { position: relative; }
+    .wish-btn {
+        position: absolute; top: 22px; right: 22px; width: 30px; height: 30px; z-index: 2;
+        background: rgba(0,0,0,0.65); border: 1px solid rgba(255,255,255,0.3); color: #fff;
+        font-size: 14px; line-height: 1; cursor: pointer; transition: all 0.25s ease;
+    }
+    .wish-btn:hover { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59,130,246,0.6); }
+    .wish-btn.is-active { color: #3b82f6; border-color: #3b82f6; }
+
+    /* Toast */
+    .prdgm-toast {
+        position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 20px); z-index: 3000;
+        background: rgba(8,8,8,0.95); border: 1px solid #3b82f6; color: #3b82f6; padding: 12px 22px;
+        font-family: monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+        box-shadow: 0 0 20px rgba(59,130,246,0.3); opacity: 0; pointer-events: none;
+        transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .prdgm-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .prdgm-toast.is-error { border-color: #ff4d4d; color: #ff4d4d; box-shadow: 0 0 20px rgba(255,77,77,0.3); }
+
+    html.light-mode .user-menu { background: rgba(255,255,255,0.97); border-color: #ccc; box-shadow: 0 0 30px rgba(0,0,0,0.15); }
+    html.light-mode .user-menu-name { color: #000; }
+    html.light-mode .user-menu-item { color: #333; }
+    html.light-mode .user-menu-item:hover { background: #000; color: #fff; }
+    html.light-mode .user-menu-head { border-color: #ddd; }
+    html.light-mode .prdgm-toast { background: #fff; }
+
+    @media (max-width: 760px) {
+        .header-actions { top: 12px; right: 12px; gap: 6px; }
+        .btn-profile span:last-child { display: none; }
+        .user-menu { min-width: 220px; }
+    }
+}

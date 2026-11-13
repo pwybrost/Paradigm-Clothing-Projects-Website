@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>My Orders | Paradigm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+    <script>(function(d){var h=d.documentElement,n=navigator;try{if(localStorage.getItem('paradigm_theme')==='light')h.classList.add('light-mode')}catch(e){}var m=null;try{m=localStorage.getItem('paradigm_perf')}catch(e){}if(m==='lite'||(m!=='full'&&((n.hardwareConcurrency||8)<=4||(n.deviceMemory||8)<=4||(n.connection&&n.connection.saveData))))h.classList.add('perf-lite')})(document);</script>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="styles/account.css" />
+    <link rel="stylesheet" href="styles/menu.css" />
+    <script defer src="analytics.js"></script>
+    <link rel="stylesheet" href="styles/light.css" />
+    <link rel="stylesheet" href="styles/perf.css" />
+    <script defer src="pwa.js"></script>
+</head>
+<body>
+
+    <div id="loaderScreen" class="loader-overlay">
+        <div class="loader-text">Retrieving Order Manifests...</div>
+    </div>
+
+    <a class="header-btn btn-left" href="index.html" id="backBtn">◄ Return to Archive</a>
+    <div class="header-actions" id="headerActions">
+        <button class="header-btn" id="themeToggleBtn">🌓 Theme</button>
+    </div>
+
+    <div class="page-header">
+        <h1>Paradigm</h1>
+        <h3>Order Manifests &amp; Wishlist</h3>
+    </div>
+
+    <div class="wrapper">
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="orders">My Orders <span id="ordersCount"></span></button>
+            <button class="tab-btn" data-tab="wishlist">Wishlist <span id="wishCount"></span></button>
+            <a class="tab-btn" href="Profile.html#history">Full History ►</a>
+        </nav>
+
+        <section class="tab-panel active" id="tab-orders">
+            <div class="group-label">Present Orders</div>
+            <div id="activeOrders"></div>
+            <div class="group-label">Past Orders</div>
+            <div id="pastOrders"></div>
+        </section>
+
+        <section class="tab-panel" id="tab-wishlist">
+            <div class="flex justify-between items-center gap-2.5 mb-5">
+                <span class="panel-note" id="wishSummary"></span>
+                <a class="btn btn-blue btn-auto" href="index.html#cart" id="viewCartBtn">View Cart (<span id="cartCount">0</span>)</a>
+            </div>
+            <main class="product-grid" id="wishGrid"></main>
+        </section>
+    </div>
+
+    <div class="modal-overlay" id="cancelModal">
+        <div class="modal-content">
+            <span class="modal-close" data-close="cancelModal">[ CLOSE ]</span>
+            <h2 class="modal-title is-danger">Abort Order <span id="cancelModalId"></span>?</h2>
+            <p class="modal-text">This order will be cancelled and cannot be restored.<br>Are you certain you wish to proceed?</p>
+            <div class="modal-actions">
+                <button class="btn" data-close="cancelModal">Keep Order</button>
+                <button class="btn btn-danger" id="confirmCancelBtn">Cancel Order</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="returnModal">
+        <div class="modal-content">
+            <span class="modal-close" data-close="returnModal">[ CLOSE ]</span>
+            <h2 class="modal-title">Return / Exchange · <span id="returnModalId"></span></h2>
+            <p class="modal-text">Requests are accepted within 30 days of shipping. We'll review it and reply on this order.</p>
+            <div class="field">
+                <label>Request Type</label>
+                <div class="filter-chips mb-0" id="returnKind">
+                    <button class="size-chip active" data-kind="exchange">Exchange (e.g. other size)</button>
+                    <button class="size-chip" data-kind="return">Return &amp; Refund</button>
+                </div>
+            </div>
+            <div class="field">
+                <label for="returnReason">Reason</label>
+                <select class="search-input" id="returnReason">
+                    <option>Wrong size / fit</option>
+                    <option>Damaged or defective</option>
+                    <option>Wrong item received</option>
+                    <option>Not as described</option>
+                    <option>Other</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="returnDetails">Details (which item, preferred size...)</label>
+                <textarea class="search-input" id="returnDetails" maxlength="1000"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" data-close="returnModal">Cancel</button>
+                <button class="btn btn-blue" id="confirmReturnBtn">Submit Request</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { getCurrentUser, getMyOrders, cancelOrder, getWishlist, removeFromWishlist, requestReturn, payOrder, checkPayment } from './auth.js';
+        import { playSound, escapeHtml, peso, initThemeToggle, mountUserMenu, toast, loadCart, addToStoredCart, getStoreSettings } from './ui.js';
+
+        const $ = (id) => document.getElementById(id);
+        const ACTIVE = ['pending', 'paid', 'shipped'];
+        const STEPS = ['pending', 'paid', 'shipped', 'completed'];
+        const STEP_LABELS = { pending: 'Received', paid: 'Paid', shipped: 'Shipped', completed: 'Delivered' };
+
+        let orders = [];
+        let wishlist = [];
+        let cancelTarget = null;
+        let returnTarget = null;
+        let onlinePayments = false;
+        const PAY_LABEL = { unpaid: 'Cash on Delivery', awaiting: 'Awaiting online payment', paid: 'Paid', failed: 'Payment failed', expired: 'Payment expired' };
+        const payText = (o) => o.paymentMethod === 'cod' && o.paymentStatus !== 'paid' ? 'Cash on Delivery' : `${o.paymentMethod === 'online' ? 'Online · ' : 'COD · '}${PAY_LABEL[o.paymentStatus] || o.paymentStatus}`;
+        let returnKind = 'exchange';
+        const addressText = (a) => (a ? [a.name, a.line1, a.line2, a.city, a.province, a.postalCode, a.country].filter(Boolean).join(', ') : '');
+
+        const user = await getCurrentUser();
+        if (!user) { window.location.href = `Login.html?next=${encodeURIComponent('Orders.html' + location.hash)}`; }
+        else {
+            mountUserMenu(user, { current: location.hash === '#wishlist' ? 'wishlist' : 'orders' });
+            const params = new URLSearchParams(location.search);
+            const paidId = params.get('paid');
+            if (paidId || params.get('payment')) history.replaceState(null, '', location.pathname + location.hash);
+            // Back from PayMongo: confirm the payment straight away (the webhook may still be on its way).
+            if (paidId) {
+                const r = await checkPayment(paidId);
+                if (r.ok && r.data.order.paymentStatus === 'paid') { playSound('success'); setTimeout(() => toast(`Payment received · order #${paidId} confirmed`), 900); }
+                else setTimeout(() => toast('Payment processing. This page updates once it is confirmed'), 900);
+            } else if (params.get('payment') === 'cancelled') {
+                setTimeout(() => toast('Payment cancelled · use Pay Now to try again', 'error'), 900);
+            }
+            const [o, w, st] = await Promise.all([getMyOrders(), getWishlist(), getStoreSettings()]);
+            onlinePayments = Boolean(st?.onlinePayments);
+            orders = o.ok ? o.data.orders : [];
+            wishlist = w.ok ? w.data.items : [];
+            renderOrders();
+            renderWishlist();
+            updateCartCount();
+            openTab(location.hash === '#wishlist' ? 'wishlist' : 'orders', false);
+            const loader = $('loaderScreen');
+            loader.classList.add('fade-out');
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
+        }
+
+        initThemeToggle($('themeToggleBtn'));
+        document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea')) e.preventDefault(); });
+        $('backBtn').addEventListener('click', () => playSound('click'));
+        $('viewCartBtn').addEventListener('click', () => playSound('click'));
+
+        function openTab(name, sound = true) {
+            if (sound) playSound('click');
+            document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+            history.replaceState(null, '', name === 'orders' ? location.pathname : `#${name}`);
+        }
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
+        window.addEventListener('hashchange', () => openTab(location.hash.slice(1) || 'orders', false));
+
+        document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => { playSound('click'); $(el.dataset.close).classList.remove('active'); }));
+
+        // ---------- Orders ----------
+        function tracker(status) {
+            if (status === 'cancelled') return '';
+            const reached = STEPS.indexOf(status);
+            return `<div class="tracker">${STEPS.map((s, i) => `<div class="tracker-step${i <= reached ? ' done' : ''}">${STEP_LABELS[s]}</div>`).join('')}</div>`;
+        }
+
+        function orderCard(o, open) {
+            return `
+                <div class="order-card${open ? ' open' : ''}">
+                    <div class="order-head">
+                        <span class="order-id">#${escapeHtml(o.id)}</span>
+                        <span class="order-date">${new Date(o.createdAt).toLocaleDateString()}</span>
+                        <span class="status-badge status-${escapeHtml(o.status)}">${escapeHtml(o.status)}</span>
+                        <span class="order-total">${peso(o.total)}</span>
+                        <span class="order-caret">►</span>
+                    </div>
+                    <div class="order-body">
+                        ${tracker(o.status)}
+                        ${o.items.map(i => `<div class="order-line"><span>${escapeHtml(i.title)}<span class="order-line-qty">${escapeHtml(i.size)}${i.color ? ` · ${escapeHtml(i.color)}` : ''} ×${i.quantity}${i.isPreorder ? ' · PRE-ORDER' : ''}</span></span><span>${peso(i.lineTotal)}</span></div>`).join('')}
+                        <div class="order-line"><span class="order-line-qty ml-0">SUBTOTAL ${peso(o.subtotal)}${o.bundleDiscount ? ` · BUNDLE −${peso(o.bundleDiscount)}` : ''}${o.discount ? ` · ${escapeHtml(o.discountCode || 'CODE')} −${peso(o.discount)}` : ''} · SHIPPING ${o.shippingFee ? peso(o.shippingFee) : 'FREE'}</span><span>${peso(o.total)}</span></div>
+                        ${o.trackingNumber || o.courier ? `<p class="panel-note mt-2.5 text-accent">◆ ${escapeHtml(o.courier || 'Courier')} · Tracking: <span class="select-all">${escapeHtml(o.trackingNumber || 'pending')}</span></p>` : ''}
+                        ${o.shippingAddress ? `<p class="panel-note mt-2">Ship to: ${escapeHtml(addressText(o.shippingAddress))} · ${escapeHtml(o.contactPhone)} · ${escapeHtml(payText(o))}</p>` : ''}
+                        ${(o.returns || []).map(r => `<p class="panel-note mt-2 is-warn">↺ ${escapeHtml(r.kind)} request: ${escapeHtml(r.status)}${r.adminNote ? ` · "${escapeHtml(r.adminNote)}"` : ''}</p>`).join('')}
+                        <div class="order-foot">
+                            <span class="panel-note">${o.status === 'pending' ? (o.paymentStatus === 'awaiting' ? 'Complete payment within 2 hours or the order is released' : 'Pay the courier on delivery') : `Last update ${new Date(o.updatedAt || o.createdAt).toLocaleString()}`}</span>
+                            <span class="flex gap-2 flex-wrap">
+                                ${o.status === 'pending' && o.paymentStatus !== 'paid' && onlinePayments ? `<button class="btn btn-blue btn-auto" data-pay="${escapeHtml(o.id)}">${o.paymentStatus === 'awaiting' ? 'Pay Now' : 'Pay Online'}</button>` : ''}
+                                <a class="btn btn-auto" href="Receipt.html?order=${escapeHtml(o.id)}" target="_blank">Receipt</a>
+                                <button class="btn btn-auto" data-again="${escapeHtml(o.id)}">Buy Again</button>
+                                ${['shipped', 'completed'].includes(o.status) && !(o.returns || []).some(r => ['requested', 'approved'].includes(r.status)) ? `<button class="btn btn-auto" data-return="${escapeHtml(o.id)}">Return / Exchange</button>` : ''}
+                                ${o.status === 'pending' ? `<button class="btn btn-danger btn-auto" data-cancel="${escapeHtml(o.id)}">Cancel Order</button>` : ''}
+                            </span>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderOrders() {
+            const active = orders.filter(o => ACTIVE.includes(o.status));
+            const past = orders.filter(o => !ACTIVE.includes(o.status));
+            $('ordersCount').textContent = active.length ? `(${active.length})` : '';
+            $('activeOrders').innerHTML = active.length
+                ? active.map((o, i) => orderCard(o, i === 0)).join('')
+                : '<div class="no-matches">--- [ NO ACTIVE ORDERS ] ---</div>';
+            $('pastOrders').innerHTML = past.length
+                ? past.map(o => orderCard(o, false)).join('')
+                : '<div class="no-matches">--- [ NO PAST ORDERS ] ---</div>';
+        }
+
+        document.querySelector('#tab-orders').addEventListener('click', (e) => {
+            const pay = e.target.closest('[data-pay]');
+            if (pay) {
+                playSound('click');
+                if (pay.disabled) return;
+                pay.disabled = true;
+                payOrder(pay.dataset.pay).then((r) => {
+                    if (r.ok) { window.location.href = r.data.checkoutUrl; return; }
+                    pay.disabled = false;
+                    playSound('error');
+                    const msg = { email_unverified: 'Verify your email first (Profile page)', not_payable: 'This order can no longer be paid', payment_unavailable: 'Payment page unavailable. Try again shortly' };
+                    toast(msg[r.data.error] || 'Could not start payment', 'error');
+                });
+                return;
+            }
+            const again = e.target.closest('[data-again]');
+            if (again) {
+                playSound('click');
+                const o = orders.find(x => String(x.id) === again.dataset.again);
+                if (!o) return;
+                for (const i of o.items) {
+                    if (!i.size) continue;
+                    addToStoredCart({ id: i.productId, name: i.title, price: i.unitPrice, size: i.size, color: i.color, quantity: i.quantity });
+                }
+                toast('Items added · stock and prices are re-checked in the cart');
+                setTimeout(() => { window.location.href = 'index.html#cart'; }, 900);
+                return;
+            }
+            const ret = e.target.closest('[data-return]');
+            if (ret) {
+                playSound('click');
+                returnTarget = ret.dataset.return;
+                $('returnModalId').textContent = `#${returnTarget}`;
+                $('returnDetails').value = '';
+                $('returnModal').classList.add('active');
+                return;
+            }
+            const cancelBtn = e.target.closest('[data-cancel]');
+            if (cancelBtn) {
+                playSound('click');
+                cancelTarget = cancelBtn.dataset.cancel;
+                $('cancelModalId').textContent = `#${cancelTarget}`;
+                $('cancelModal').classList.add('active');
+                return;
+            }
+            const head = e.target.closest('.order-head');
+            if (head) { playSound('click'); head.parentElement.classList.toggle('open'); }
+        });
+
+        $('confirmCancelBtn').addEventListener('click', async function () {
+            if (this.disabled || !cancelTarget) return;
+            this.disabled = true;
+            const r = await cancelOrder(cancelTarget);
+            this.disabled = false;
+            $('cancelModal').classList.remove('active');
+            if (r.ok) {
+                orders = orders.map(o => String(o.id) === String(cancelTarget) ? r.data.order : o);
+                renderOrders();
+                playSound('purge');
+                toast(`Order #${cancelTarget} cancelled`);
+            } else {
+                playSound('error');
+                toast(r.data.error === 'order_not_cancellable' ? 'Order already processed, cannot cancel' : 'Cancel failed. Retry.', 'error');
+            }
+        });
+
+        $('returnKind').addEventListener('click', (e) => {
+            const chip = e.target.closest('[data-kind]');
+            if (!chip) return;
+            playSound('click');
+            returnKind = chip.dataset.kind;
+            document.querySelectorAll('#returnKind .size-chip').forEach(c => c.classList.toggle('active', c === chip));
+        });
+        $('confirmReturnBtn').addEventListener('click', async function () {
+            if (this.disabled || !returnTarget) return;
+            this.disabled = true;
+            const r = await requestReturn(returnTarget, { kind: returnKind, reason: $('returnReason').value, details: $('returnDetails').value });
+            this.disabled = false;
+            $('returnModal').classList.remove('active');
+            if (r.ok) {
+                orders = orders.map(o => String(o.id) === String(returnTarget) ? r.data.order : o);
+                renderOrders();
+                playSound('success');
+                toast('Request submitted');
+            } else {
+                playSound('error');
+                const msg = { return_window_closed: '30-day window has closed', return_already_open: 'A request is already open', not_returnable: 'Order not shipped yet' };
+                toast(msg[r.data.error] || 'Request failed. Retry.', 'error');
+            }
+        });
+
+        // ---------- Wishlist ----------
+        function renderWishlist() {
+            $('wishCount').textContent = wishlist.length ? `(${wishlist.length})` : '';
+            $('wishSummary').textContent = `${wishlist.length} saved item(s) · ${peso(wishlist.reduce((s, i) => s + i.price, 0))}`;
+            if (wishlist.length === 0) {
+                $('wishGrid').innerHTML = '<div class="no-matches col-span-full">--- [ WISHLIST EMPTY · TAP ♡ IN THE ARCHIVE ] ---</div>';
+                return;
+            }
+            $('wishGrid').innerHTML = wishlist.map(p => `
+                <div class="product-card">
+                    <img src="${escapeHtml(p.image || 'https://placehold.co/400?text=Paradigm')}" alt="${escapeHtml(p.title)}" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400?text=Paradigm'">
+                    <h4>${escapeHtml(p.title)}</h4>
+                    <p class="price">₱${p.price.toLocaleString()}</p>
+                    <div class="card-actions">
+                        <a class="btn btn-blue" href="index.html?item=${p.id}">Choose Size ►</a>
+                        <button class="btn btn-danger" data-unwish="${p.id}">Remove</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function updateCartCount() {
+            $('cartCount').textContent = loadCart().reduce((s, i) => s + i.quantity, 0);
+        }
+
+        $('wishGrid').addEventListener('click', async (e) => {
+            const remove = e.target.closest('[data-unwish]');
+            if (remove) {
+                playSound('click');
+                const id = Number(remove.dataset.unwish);
+                const r = await removeFromWishlist(id);
+                if (r.ok) { wishlist = wishlist.filter(i => i.id !== id); renderWishlist(); toast('Removed from wishlist'); }
+                else { playSound('error'); toast('Remove failed. Retry.', 'error'); }
+            }
+        });
+    </script>
+</body>
+</html>
