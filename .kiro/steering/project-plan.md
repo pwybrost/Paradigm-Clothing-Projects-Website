@@ -69,3 +69,8 @@ inclusion: always
 
 ### Later ideas
 - Refunds through the PayMongo API, abandoned-cart emails, multiple saved addresses, shipping rates by region.
+
+### Maintenance (latest)
+- Background animation is compositor-only (two still layers cross-faded, in styles/perf.css); sw.js cache VERSION bumped to v2.
+- `npm run admin:set-password -- email` for direct passcode changes.
+- Full project summary for new chats: HANDOFF.md.

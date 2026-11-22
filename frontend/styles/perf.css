@@ -1,16 +1,30 @@
 /* Rendering performance. Nothing here changes how the site looks on a normal device.
    Un-layered so it applies on top of every page's styles. */
 
-/* 1. The animated background (blur + brightness + saturate on a full-screen layer) is the most
-      expensive thing on every page. Give it its own GPU layer and isolate it so it doesn't force
-      the rest of the page to repaint on every frame. */
-body::before {
-    will-change: transform, filter, opacity;
-    backface-visibility: hidden;
-    contain: strict;
-    pointer-events: none;
+/* 1. The background used to animate blur + brightness + saturation on a full-screen layer, which
+      makes the browser repaint the whole screen on every frame (the main cause of lag and fans
+      spinning up). It's now two still layers that are filtered once and then only cross-faded and
+      zoomed. Opacity and scale are handled by the graphics chip, so the CPU stays idle while it
+      looks the same: dim and blurred at one end, bright and saturated at the other.
+        html::before = dim, blurred layer (always visible)
+        body::before = bright, sharp layer (fades in and out on top) */
+html::before, body::before {
+    content: ""; position: fixed; top: -10%; left: -10%; width: 120vw; height: 120vh;
+    background-image: url('https://img.freepik.com/free-photo/grayscale-futuristic-abstract-background-with-light-effects_181624-16494.jpg');
+    background-size: cover; background-position: center;
+    will-change: transform, opacity; backface-visibility: hidden; contain: strict; pointer-events: none;
 }
+html::before { z-index: -3; filter: brightness(0.3) blur(6px); opacity: 0.5; animation: bg-zoom 12s infinite alternate ease-in-out; }
+body::before { z-index: -2; filter: brightness(1.5) saturate(2.5); animation: bg-bright 12s infinite alternate ease-in-out; }
+@keyframes bg-zoom { from { transform: scale(1); } to { transform: scale(1.15); } }
+@keyframes bg-bright { from { transform: scale(1); opacity: 0; } to { transform: scale(1.15); opacity: 1; } }
+
+html.light-mode::before { filter: grayscale(1) brightness(1.15) blur(6px); opacity: 0.45; }
+html.light-mode body::before { filter: grayscale(1) brightness(1.25); animation-name: bg-bright-light; }
+@keyframes bg-bright-light { from { transform: scale(1); opacity: 0; } to { transform: scale(1.15); opacity: 0.7; } }
+
 body::after { contain: strict; pointer-events: none; }
+@media print { html::before { display: none !important; } }
 
 /* 2. Skip layout/paint work for cards and sections that are off-screen (huge win for theme
       switching and scrolling: the browser only restyles what you can see). */
@@ -29,8 +43,9 @@ html.theme-switching *, html.theme-switching *::before, html.theme-switching *::
 /* 4. Low-end devices (2-4 CPU cores, <=4 GB RAM, or data saver), set by a tiny script in each page head,
       and people who ask their OS for reduced motion: keep the same look, but hold the background
       still and drop live blur effects that have to be recalculated every frame. */
-html.perf-lite body::before { animation: none; filter: brightness(0.75) saturate(1.6) blur(2px); opacity: 0.85; transform: scale(1.07); }
-html.perf-lite.light-mode body::before { filter: grayscale(1) brightness(1.2) blur(2px); opacity: 0.6; }
+html.perf-lite::before, html.perf-lite body::before { animation: none; transform: scale(1.07); }
+html.perf-lite body::before { opacity: 0.55; }
+html.perf-lite.light-mode body::before { opacity: 0.4; }
 html.perf-lite .header-btn, html.perf-lite .theme-btn, html.perf-lite .container,
 html.perf-lite .modal-overlay, html.perf-lite .user-menu { backdrop-filter: none; -webkit-backdrop-filter: none; }
 html.perf-lite .modal-overlay { background: rgba(0, 0, 0, 0.9); }
@@ -38,8 +53,9 @@ html.perf-lite.light-mode .modal-overlay { background: rgba(15, 23, 42, 0.5); }
 html.perf-lite .loader-text { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
-    body::before { animation: none !important; filter: brightness(0.75) saturate(1.6) blur(2px); opacity: 0.85; transform: scale(1.07); }
-    html.light-mode body::before { filter: grayscale(1) brightness(1.2) blur(2px); opacity: 0.6; }
+    html::before, body::before { animation: none !important; transform: scale(1.07); }
+    body::before { opacity: 0.55; }
+    html.light-mode body::before { opacity: 0.4; }
     .grid-enter, .tab-panel.active, .modal-content { animation-duration: 0.01ms !important; }
 }
 
