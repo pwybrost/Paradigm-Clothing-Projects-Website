@@ -4,7 +4,7 @@
 //   Product photos        -> cache first (their URLs change whenever the photo changes)
 //   Account data          -> network first, cached copy if offline (cleared on logout/login)
 //   Everything else (POST, admin, payments) always goes to the network.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `prdgm-shell-${VERSION}`;
 const DATA = 'prdgm-data-v1';
 const IMAGES = 'prdgm-img-v1';

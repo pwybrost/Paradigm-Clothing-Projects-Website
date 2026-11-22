@@ -15,7 +15,8 @@
     "db:migrate": "node backend/scripts/migrate.js",
     "db:seed": "node backend/scripts/seed.js",
     "db:setup": "npm run db:migrate && npm run db:seed",
-    "vercel-build": "npm run build && node backend/scripts/migrate.js --if-configured && node backend/scripts/seed.js --if-configured"
+    "vercel-build": "npm run build && node backend/scripts/migrate.js --if-configured && node backend/scripts/seed.js --if-configured",
+    "admin:set-password": "node backend/scripts/set-password.js"
   },
   "dependencies": {
     "express": "^5.1.0",

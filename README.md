@@ -143,3 +143,8 @@ If a fresh database is missing tables or photos, the API creates them on the fir
 
 `docker compose up --build` runs the shop with its own local PostgreSQL at http://localhost:3000, without touching Neon.
 Vercel doesn't use Docker.
+
+## Change a passcode directly
+
+`npm run admin:set-password -- you@example.com` (run locally with `DATABASE_URL` in `.env`).
+It asks for the new passcode, stores only its hash, and signs that account out everywhere.
